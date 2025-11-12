@@ -1,10 +1,10 @@
-# pvec - Proxmox VE Terminal Client
+# PVEC - Proxmox VE Terminal Client
 
 A terminal-based user interface (TUI) for managing Proxmox Virtual Environment VMs and containers. Built with Go and designed for efficient keyboard-driven workflows.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Go Version](https://img.shields.io/badge/go-1.23-blue.svg)
-![Coverage](https://img.shields.io/badge/coverage-85.5%25-brightgreen.svg)
+![Go Version](https://img.shields.io/badge/go-1.25-blue.svg)
+![Coverage](https://img.shields.io/badge/coverage-86.1%25-brightgreen.svg)
 
 ## Features
 
