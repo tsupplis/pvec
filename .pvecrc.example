@@ -1,0 +1,19 @@
+{
+  "_comment": "Proxmox VE Configuration for pvec",
+  "_comment2": "Copy this file to ~/.pvecrc and update with your credentials",
+  
+  "api_url": "https://proxmox.example.com:8006",
+  
+  "_comment3": "API Token ID (format: user@realm!tokenname)",
+  "_comment4": "Create this in Proxmox: Datacenter -> Permissions -> API Tokens",
+  "token_id": "user@pam!pvec",
+  
+  "_comment5": "API Token Secret (the UUID shown when you create the token)",
+  "token_secret": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  
+  "_comment6": "Refresh interval for VM/CT status updates (default: 5s)",
+  "refresh_interval": "5s",
+  
+  "_comment7": "Skip TLS certificate verification (default: true for self-signed certs)",
+  "skip_tls_verify": true
+}

@@ -2,8 +2,6 @@
 **/.DS_Store
 **/*.swp
 .vscode
-go.sum
-timesync*
 test-config.json
 *.out
 bin/**
