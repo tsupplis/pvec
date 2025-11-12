@@ -85,23 +85,7 @@ make test-coverage
 go tool cover -html=coverage.out
 ```
 
-### Test Coverage
-
-Current coverage by package:
-
-| Package | Coverage |
-|---------|-----------|
-| actions | 100.0% |
-| config | 93.9% |
-| models | 100.0% |
-| proxmox | 73.9% |
-| ui/actiondialog | 81.0% |
-| ui/colors | N/A (constants) |
-| ui/configpanel | 67.2% |
-| ui/detailsdialog | 69.2% |
-| ui/helpdialog | 76.5% |
-| ui/mainlist | 89.7% |
-| **Overall** | **86.1%** |
+For detailed test coverage metrics by package, see [Code Analysis Report](code_analysis.md).
 
 ### Writing Tests
 
@@ -113,7 +97,7 @@ Current coverage by package:
 
 ## Code Quality
 
-### Code Metrics
+### Code Analysis
 
 Run comprehensive code analysis:
 
@@ -126,25 +110,18 @@ cat docs/code_analysis.md
 ```
 
 The analysis includes:
-- Cyclomatic complexity (target: < 15)
-- Cognitive complexity
+- Cyclomatic complexity analysis
+- Cognitive complexity analysis  
 - Static analysis (go vet, staticcheck)
 - Security analysis (gosec)
 - Vulnerability scanning (govulncheck)
 - Code smells detection
 - Dead code detection
 - Architecture validation
+- Test coverage metrics
+- Code quality scores
 
-### Complexity Guidelines
-
-| Range | Level | Action Required |
-|-------|-------|-----------------|
-| 1-10 | Simple | None - keep as is |
-| 11-15 | Moderate | Review and monitor |
-| 16-25 | High | Plan refactoring |
-| 26+ | Very High | Refactor immediately |
-
-Current status: **Excellent code quality achieved!** All functions have optimal complexity levels with maximum cyclomatic complexity of 10 ✅ and zero cognitive complexity issues 🎯
+For current metrics, complexity guidelines, and detailed analysis results, see [Code Analysis Report](code_analysis.md).
 
 ### Code Standards
 
@@ -349,7 +326,7 @@ go install github.com/securego/gosec/v2/cmd/gosec@latest
 ✅ 82.3% test coverage (target: add tests for detailsdialog)  
 ⚠️ Some functions with high complexity need refactoring (test-ui main function: 21)  
 ✅ 1 minor security issue (slice index bounds check)  
-✅ Successfully tested against Proxmox VE 8.x  
+✅ Successfully tested against Proxmox VE 9.x  
 ✅ Docker support  
 ✅ Comprehensive documentation
 
