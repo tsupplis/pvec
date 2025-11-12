@@ -316,20 +316,6 @@ go install golang.org/x/vuln/cmd/govulncheck@latest
 go install github.com/securego/gosec/v2/cmd/gosec@latest
 ```
 
-## Project Status
-
-**Current Version**: 1.1.0 (Enhanced with Details Dialog)
-
-✅ All core features implemented  
-✅ Enhanced details dialog with guest agent support and organized configuration display  
-✅ Responsive dialog sizing that adapts to screen dimensions  
-✅ 82.3% test coverage (target: add tests for detailsdialog)  
-⚠️ Some functions with high complexity need refactoring (test-ui main function: 21)  
-✅ 1 minor security issue (slice index bounds check)  
-✅ Successfully tested against Proxmox VE 9.x  
-✅ Docker support  
-✅ Comprehensive documentation
-
 ## Additional Resources
 
 - [Code Analysis Report](code_analysis.md) - Detailed code metrics
