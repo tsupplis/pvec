@@ -215,6 +215,12 @@ func (ml *MainList) updateTable() {
 			SetAlign(tview.AlignLeft).
 			SetSelectable(false).
 			SetAttributes(tcell.AttrBold)
+		
+		// Make the Name column (index 2) expandable
+		if col == 2 {
+			cell.SetExpansion(1)
+		}
+		
 		ml.table.SetCell(0, col, cell)
 	}
 
@@ -230,10 +236,11 @@ func (ml *MainList) updateTable() {
 			SetTextColor(colors.Current.Foreground).
 			SetAlign(tview.AlignLeft))
 
-		// Name
+		// Name (expandable to take remaining space)
 		ml.table.SetCell(row, 2, tview.NewTableCell(node.Name).
 			SetTextColor(colors.Current.Foreground).
-			SetAlign(tview.AlignLeft))
+			SetAlign(tview.AlignLeft).
+			SetExpansion(1)) // This makes the column expand to fill available space
 
 		// Type
 		ml.table.SetCell(row, 3, getTypeCell(models.NodeType(node.Type)))
