@@ -215,12 +215,12 @@ func (ml *MainList) updateTable() {
 			SetAlign(tview.AlignLeft).
 			SetSelectable(false).
 			SetAttributes(tcell.AttrBold)
-		
+
 		// Make the Name column (index 2) expandable
 		if col == 2 {
 			cell.SetExpansion(1)
 		}
-		
+
 		ml.table.SetCell(0, col, cell)
 	}
 

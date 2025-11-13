@@ -106,51 +106,52 @@ type nodeResource struct {
 	Node string `json:"node"`
 }
 
-// vmResource represents a VM or Container resource
-type vmResource struct {
-	VMID   json.Number `json:"vmid"`
-	Name   string      `json:"name"`
-	Type   string      `json:"type"`
-	Status string      `json:"status"`
-	CPU    float64     `json:"cpu"`
-	Mem    int64       `json:"mem"`
-	MaxMem int64       `json:"maxmem"`
-	MaxCPU int         `json:"maxcpu"`
-	Uptime int64       `json:"uptime"`
+// clusterResource represents a resource from the cluster/resources endpoint
+type clusterResource struct {
+	ID        string      `json:"id"`
+	VMID      json.Number `json:"vmid"`
+	Name      string      `json:"name"`
+	Type      string      `json:"type"`
+	Status    string      `json:"status"`
+	Node      string      `json:"node"`
+	CPU       float64     `json:"cpu"`
+	Mem       int64       `json:"mem"`
+	MaxMem    int64       `json:"maxmem"`
+	MaxCPU    int         `json:"maxcpu"`
+	Uptime    int64       `json:"uptime"`
+	DiskRead  int64       `json:"diskread"`
+	DiskWrite int64       `json:"diskwrite"`
 }
 
-// GetNodes retrieves all VMs and Containers from all nodes
+// GetNodes retrieves all VMs and Containers from all nodes using cluster resources
 func (c *HTTPClient) GetNodes(ctx context.Context) ([]*models.VMStatus, error) {
-	// First, get list of nodes
-	resp, err := c.doRequest(ctx, "GET", "/nodes", nil)
+	// Use cluster/resources endpoint for more accurate data
+	resp, err := c.doRequest(ctx, "GET", "/cluster/resources", nil)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get nodes: status %d", resp.StatusCode)
+		return nil, fmt.Errorf("failed to get cluster resources: status %d", resp.StatusCode)
 	}
 
-	var nodesResp proxmoxResponse
-	if err := json.NewDecoder(resp.Body).Decode(&nodesResp); err != nil {
-		return nil, fmt.Errorf("failed to decode nodes response: %w", err)
+	var resourcesResp proxmoxResponse
+	if err := json.NewDecoder(resp.Body).Decode(&resourcesResp); err != nil {
+		return nil, fmt.Errorf("failed to decode cluster resources response: %w", err)
 	}
 
-	var nodes []nodeResource
-	if err := json.Unmarshal(nodesResp.Data, &nodes); err != nil {
-		return nil, fmt.Errorf("failed to parse nodes data: %w", err)
+	var resources []clusterResource
+	if err := json.Unmarshal(resourcesResp.Data, &resources); err != nil {
+		return nil, fmt.Errorf("failed to parse cluster resources data: %w", err)
 	}
 
-	// Collect VMs and Containers from all nodes
 	var allVMs []*models.VMStatus
-	for _, node := range nodes {
-		vms, err := c.getNodeVMs(ctx, node.Node)
-		if err != nil {
-			// Log error but continue with other nodes
-			continue
+	for _, resource := range resources {
+		if resource.Type == "qemu" || resource.Type == "lxc" {
+			vmStatus := c.createVMStatusFromClusterResource(resource)
+			allVMs = append(allVMs, vmStatus)
 		}
-		allVMs = append(allVMs, vms...)
 	}
 
 	return allVMs, nil
@@ -183,91 +184,6 @@ func (c *HTTPClient) GetVMConfig(ctx context.Context, node, vmType, vmid string)
 	return config, nil
 }
 
-// getNodeVMs retrieves VMs and Containers from a specific node
-func (c *HTTPClient) getNodeVMs(ctx context.Context, nodeName string) ([]*models.VMStatus, error) {
-	// Get QEMU VMs
-	qemuVMs, _ := c.getResources(ctx, nodeName, "qemu")
-	// Get LXC Containers
-	lxcVMs, _ := c.getResources(ctx, nodeName, "lxc")
-
-	return append(qemuVMs, lxcVMs...), nil
-}
-
-// getResources retrieves resources of a specific type (qemu or lxc)
-func (c *HTTPClient) getResources(ctx context.Context, nodeName, resType string) ([]*models.VMStatus, error) {
-	path := fmt.Sprintf("/nodes/%s/%s", nodeName, resType)
-	resp, err := c.doRequest(ctx, "GET", path, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get %s resources: status %d", resType, resp.StatusCode)
-	}
-
-	// Parse the API response
-	resources, err := c.parseResourcesResponse(resp)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert to our model
-	return c.convertResourcesToVMStatus(resources, resType, nodeName), nil
-}
-
-// parseResourcesResponse parses the API response into vmResource slice
-func (c *HTTPClient) parseResourcesResponse(resp *http.Response) ([]vmResource, error) {
-	var apiResp proxmoxResponse
-	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	var resources []vmResource
-	if err := json.Unmarshal(apiResp.Data, &resources); err != nil {
-		return nil, fmt.Errorf("failed to parse resources: %w", err)
-	}
-
-	return resources, nil
-}
-
-// convertResourcesToVMStatus converts vmResource slice to VMStatus slice
-func (c *HTTPClient) convertResourcesToVMStatus(resources []vmResource, resType, nodeName string) []*models.VMStatus {
-	result := make([]*models.VMStatus, 0, len(resources))
-	for _, res := range resources {
-		vmStatus := c.createVMStatusFromResource(res, resType, nodeName)
-		result = append(result, vmStatus)
-	}
-	return result
-}
-
-// createVMStatusFromResource creates a VMStatus from a single vmResource
-func (c *HTTPClient) createVMStatusFromResource(res vmResource, resType, nodeName string) *models.VMStatus {
-	vmid := res.VMID.String()
-
-	nodeType := models.TypeVM
-	if resType == "lxc" {
-		nodeType = models.TypeContainer
-	}
-
-	status := c.mapResourceStatus(res.Status)
-	cpuPercent := res.CPU * 100
-	memPercent := c.calculateMemoryPercentage(res.Mem, res.MaxMem)
-
-	return &models.VMStatus{
-		VMID:        vmid,
-		Name:        res.Name,
-		Type:        string(nodeType),
-		Status:      string(status),
-		Node:        nodeName,
-		CPUUsage:    cpuPercent,
-		MemoryUsage: memPercent,
-		MaxMem:      res.MaxMem,
-		MaxCPU:      res.MaxCPU,
-		Uptime:      res.Uptime,
-	}
-}
-
 // mapResourceStatus maps Proxmox status strings to our model states
 func (c *HTTPClient) mapResourceStatus(status string) models.NodeState {
 	switch status {
@@ -288,6 +204,33 @@ func (c *HTTPClient) calculateMemoryPercentage(mem, maxMem int64) float64 {
 		return (float64(mem) / float64(maxMem)) * 100
 	}
 	return 0.0
+}
+
+// createVMStatusFromClusterResource creates a VMStatus from a cluster resource
+func (c *HTTPClient) createVMStatusFromClusterResource(res clusterResource) *models.VMStatus {
+	vmid := res.VMID.String()
+
+	nodeType := models.TypeVM
+	if res.Type == "lxc" {
+		nodeType = models.TypeContainer
+	}
+
+	status := c.mapResourceStatus(res.Status)
+	cpuPercent := res.CPU * 100
+	memPercent := c.calculateMemoryPercentage(res.Mem, res.MaxMem)
+
+	return &models.VMStatus{
+		VMID:        vmid,
+		Name:        res.Name,
+		Type:        string(nodeType),
+		Status:      string(status),
+		Node:        res.Node,
+		CPUUsage:    cpuPercent,
+		MemoryUsage: memPercent,
+		MaxMem:      res.MaxMem,
+		MaxCPU:      res.MaxCPU,
+		Uptime:      res.Uptime,
+	}
 }
 
 // Start starts a VM or Container
