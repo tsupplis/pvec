@@ -15,8 +15,8 @@ import (
 func setupMockServer(_ *testing.T) (*httptest.Server, *HTTPClient) {
 	mux := http.NewServeMux()
 
-	// Mock nodes endpoint
-	mux.HandleFunc("/api2/json/nodes", func(w http.ResponseWriter, r *http.Request) {
+	// Mock cluster/resources endpoint
+	mux.HandleFunc("/api2/json/cluster/resources", func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "test-token" {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
@@ -24,61 +24,37 @@ func setupMockServer(_ *testing.T) (*httptest.Server, *HTTPClient) {
 
 		resp := map[string]interface{}{
 			"data": []map[string]interface{}{
-				{"node": "pve1"},
-				{"node": "pve2"},
-			},
-		}
-		_ = json.NewEncoder(w).Encode(resp)
-	})
-
-	// Mock QEMU VMs endpoint
-	mux.HandleFunc("/api2/json/nodes/pve1/qemu", func(w http.ResponseWriter, r *http.Request) {
-		resp := map[string]interface{}{
-			"data": []map[string]interface{}{
 				{
-					"vmid":   100,
-					"name":   "test-vm",
-					"type":   "qemu",
-					"status": "running",
-					"cpu":    0.25,
-					"mem":    2147483648,
-					"maxmem": 4294967296,
-					"maxcpu": 2,
-					"uptime": 3600,
+					"id":        "qemu/100",
+					"vmid":      100,
+					"name":      "test-vm",
+					"type":      "qemu",
+					"status":    "running",
+					"node":      "pve1",
+					"cpu":       0.25,
+					"mem":       2147483648,
+					"maxmem":    4294967296,
+					"maxcpu":    2,
+					"uptime":    3600,
+					"diskread":  1024,
+					"diskwrite": 2048,
+				},
+				{
+					"id":        "lxc/200",
+					"vmid":      200,
+					"name":      "test-ct",
+					"type":      "lxc",
+					"status":    "stopped",
+					"node":      "pve1",
+					"cpu":       0.0,
+					"mem":       0,
+					"maxmem":    1073741824,
+					"maxcpu":    1,
+					"uptime":    0,
+					"diskread":  0,
+					"diskwrite": 0,
 				},
 			},
-		}
-		_ = json.NewEncoder(w).Encode(resp)
-	})
-
-	mux.HandleFunc("/api2/json/nodes/pve2/qemu", func(w http.ResponseWriter, r *http.Request) {
-		resp := map[string]interface{}{
-			"data": []map[string]interface{}{},
-		}
-		_ = json.NewEncoder(w).Encode(resp)
-	}) // Mock LXC containers endpoint
-	mux.HandleFunc("/api2/json/nodes/pve1/lxc", func(w http.ResponseWriter, r *http.Request) {
-		resp := map[string]interface{}{
-			"data": []map[string]interface{}{
-				{
-					"vmid":   200,
-					"name":   "test-ct",
-					"type":   "lxc",
-					"status": "stopped",
-					"cpu":    0.0,
-					"mem":    0,
-					"maxmem": 1073741824,
-					"maxcpu": 1,
-					"uptime": 0,
-				},
-			},
-		}
-		_ = json.NewEncoder(w).Encode(resp)
-	})
-
-	mux.HandleFunc("/api2/json/nodes/pve2/lxc", func(w http.ResponseWriter, r *http.Request) {
-		resp := map[string]interface{}{
-			"data": []map[string]interface{}{},
 		}
 		_ = json.NewEncoder(w).Encode(resp)
 	})

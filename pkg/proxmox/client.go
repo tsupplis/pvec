@@ -101,11 +101,6 @@ type proxmoxResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
-// nodeResource represents a node in the cluster
-type nodeResource struct {
-	Node string `json:"node"`
-}
-
 // clusterResource represents a resource from the cluster/resources endpoint
 type clusterResource struct {
 	ID        string      `json:"id"`
