@@ -103,6 +103,16 @@ func handleKeyEvent(event *tcell.EventKey, app *tview.Application, pages *tview.
 	ml *mainlist.MainList, executor actions.Executor, helpDlg *helpdialog.HelpDialog,
 	cfgPanel *configpanel.ConfigPanel, detailsDlg *detailsdialog.DetailsDialog) *tcell.EventKey {
 
+	// If a modal dialog is open, only allow Escape and Enter keys
+	if isModalPageOpen(pages) {
+		switch event.Key() {
+		case tcell.KeyEscape, tcell.KeyEnter:
+			return event // Allow these keys to be processed by the dialog
+		default:
+			return nil // Block all other keys
+		}
+	}
+
 	switch event.Key() {
 	case tcell.KeyF1:
 		helpDlg.Show()

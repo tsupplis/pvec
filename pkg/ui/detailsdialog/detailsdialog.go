@@ -111,21 +111,18 @@ func (dd *DetailsDialog) showError(vm *models.VMStatus, err error) {
 	dd.table.Clear()
 	dd.table.SetCell(0, 0, tview.NewTableCell("Error").
 		SetTextColor(colors.Current.AlertColor).
-		SetAlign(tview.AlignLeft).
-		SetAttributes(tcell.AttrBold))
+		SetAlign(tview.AlignLeft))
 	dd.table.SetCell(0, 1, tview.NewTableCell(err.Error()).
 		SetTextColor(colors.Current.AlertColor).
 		SetAlign(tview.AlignLeft))
 
 	// Show basic info even on error
 	dd.table.SetCell(2, 0, tview.NewTableCell("VMID").
-		SetTextColor(colors.Current.Foreground).
-		SetAttributes(tcell.AttrBold))
+		SetTextColor(colors.Current.Foreground))
 	dd.table.SetCell(2, 1, tview.NewTableCell(vm.VMID).
 		SetTextColor(colors.Current.Foreground))
 	dd.table.SetCell(3, 0, tview.NewTableCell("Name").
-		SetTextColor(colors.Current.Foreground).
-		SetAttributes(tcell.AttrBold))
+		SetTextColor(colors.Current.Foreground))
 	dd.table.SetCell(3, 1, tview.NewTableCell(vm.Name).
 		SetTextColor(colors.Current.Foreground))
 }
@@ -153,14 +150,12 @@ func (dd *DetailsDialog) addHeaderRow() {
 	dd.table.SetCell(0, 0, tview.NewTableCell("Property").
 		SetTextColor(colors.Current.AccentForeground).
 		SetAlign(tview.AlignLeft).
-		SetSelectable(false).
-		SetAttributes(tcell.AttrBold))
+		SetSelectable(false))
 
 	dd.table.SetCell(0, 1, tview.NewTableCell("Value").
 		SetTextColor(colors.Current.AccentForeground).
 		SetAlign(tview.AlignLeft).
-		SetSelectable(false).
-		SetAttributes(tcell.AttrBold))
+		SetSelectable(false))
 }
 
 // addDetailRows adds all detail rows to the table
@@ -185,7 +180,6 @@ func (dd *DetailsDialog) addSeparatorRow(row int, detail DetailItem) {
 	dd.table.SetCell(row, 0, tview.NewTableCell(detail.Key).
 		SetTextColor(colors.Current.AccentForeground).
 		SetAlign(tview.AlignCenter).
-		SetAttributes(tcell.AttrBold).
 		SetSelectable(false))
 	dd.table.SetCell(row, 1, tview.NewTableCell("").
 		SetTextColor(colors.Current.AccentForeground).
@@ -198,8 +192,7 @@ func (dd *DetailsDialog) addPropertyRow(row int, detail DetailItem) {
 	keyText := dd.formatKeyText(detail.Key)
 	dd.table.SetCell(row, 0, tview.NewTableCell(keyText).
 		SetTextColor(colors.Current.Foreground).
-		SetAlign(tview.AlignLeft).
-		SetAttributes(tcell.AttrBold))
+		SetAlign(tview.AlignLeft))
 
 	// Value (responsive - no fixed width, let it grow/shrink)
 	valueText := detail.Value

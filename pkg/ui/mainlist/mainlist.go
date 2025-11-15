@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/tsupplis/pvec/pkg/models"
 	"github.com/tsupplis/pvec/pkg/ui/colors"
@@ -213,8 +212,7 @@ func (ml *MainList) updateTable() {
 		cell := tview.NewTableCell(header).
 			SetTextColor(colors.Current.AccentForeground).
 			SetAlign(tview.AlignLeft).
-			SetSelectable(false).
-			SetAttributes(tcell.AttrBold)
+			SetSelectable(false)
 
 		// Make the Name column (index 2) expandable
 		if col == 2 {
@@ -250,13 +248,21 @@ func (ml *MainList) updateTable() {
 			SetTextColor(colors.Current.Foreground).
 			SetAlign(tview.AlignLeft))
 
-		// CPU%
-		cpuText := fmt.Sprintf("%.1f%%", node.CPUUsage)
-		ml.table.SetCell(row, 5, getResourceCell(node.CPUUsage, cpuText, 50, 80))
+		// CPU% (clamp negative values to 0)
+		cpuUsage := node.CPUUsage
+		if cpuUsage < 0 {
+			cpuUsage = 0
+		}
+		cpuText := fmt.Sprintf("%.1f%%", cpuUsage)
+		ml.table.SetCell(row, 5, getResourceCell(cpuUsage, cpuText, 50, 80))
 
-		// Memory%
-		memText := fmt.Sprintf("%.1f%%", node.MemoryUsage)
-		ml.table.SetCell(row, 6, getResourceCell(node.MemoryUsage, memText, 70, 90))
+		// Memory% (clamp negative values to 0)
+		memUsage := node.MemoryUsage
+		if memUsage < 0 {
+			memUsage = 0
+		}
+		memText := fmt.Sprintf("%.1f%%", memUsage)
+		ml.table.SetCell(row, 6, getResourceCell(memUsage, memText, 70, 90))
 
 		// Uptime
 		uptimeText := formatUptime(node.Uptime)
