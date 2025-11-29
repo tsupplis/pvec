@@ -85,6 +85,7 @@ func (l *ViperLoader) Load() (*Config, error) {
 func (l *ViperLoader) Save(cfg *Config) error {
 	v := viper.New()
 	v.SetConfigFile(l.configPath)
+	v.SetConfigType("json")
 
 	v.Set("api_url", cfg.APIUrl)
 	v.Set("token_id", cfg.TokenID)

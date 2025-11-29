@@ -69,8 +69,8 @@ func (cp *ConfigPanel) buildForm() {
 	cp.form.SetLabelColor(colors.Current.Foreground).
 		SetFieldBackgroundColor(colors.Current.ActiveBackground).
 		SetFieldTextColor(colors.Current.ActiveForeground).
-		SetButtonBackgroundColor(colors.Current.Foreground).
-		SetButtonTextColor(colors.Current.Background)
+		SetButtonBackgroundColor(colors.Current.ActiveBackground).
+		SetButtonTextColor(colors.Current.ActiveForeground)
 
 	cp.form.SetCancelFunc(func() {
 		cp.handleCancel()

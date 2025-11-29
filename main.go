@@ -103,17 +103,22 @@ func handleKeyEvent(event *tcell.EventKey, app *tview.Application, pages *tview.
 	ml *mainlist.MainList, executor actions.Executor, helpDlg *helpdialog.HelpDialog,
 	cfgPanel *configpanel.ConfigPanel, detailsDlg *detailsdialog.DetailsDialog) *tcell.EventKey {
 
-	// If a modal dialog is open, only allow Escape, Enter, and navigation keys
+	// If a modal dialog is open, only allow Escape, Enter, Tab, Backspace, and navigation keys
 	if isModalPageOpen(pages) {
 		switch event.Key() {
 		case tcell.KeyEscape, tcell.KeyEnter,
+			tcell.KeyTab, tcell.KeyBacktab,
+			tcell.KeyBackspace, tcell.KeyBackspace2,
+			tcell.KeyDelete,
 			tcell.KeyUp, tcell.KeyDown,
 			tcell.KeyLeft, tcell.KeyRight,
 			tcell.KeyPgUp, tcell.KeyPgDn,
 			tcell.KeyHome, tcell.KeyEnd:
 			return event // Allow these keys to be processed by the dialog
+		case tcell.KeyRune:
+			return event // Allow typing in input fields
 		default:
-			return nil // Block all other keys (F-keys, letter shortcuts, etc.)
+			return nil // Block other special keys (F-keys, Ctrl combinations, etc.)
 		}
 	}
 

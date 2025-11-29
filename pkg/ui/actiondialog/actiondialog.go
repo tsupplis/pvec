@@ -39,6 +39,10 @@ func NewActionDialog(pages *tview.Pages, action actions.Action, vmid string) *Ac
 	ad.modal.Box.SetBackgroundColor(colors.Current.Background).
 		SetBorderColor(colors.Current.Foreground)
 
+	// Style buttons - unselected: white on dark green, selected: white on black (tview inverts)
+	ad.modal.SetButtonBackgroundColor(colors.Current.ActiveBackground).
+		SetButtonTextColor(colors.Current.ActiveForeground)
+
 	return ad
 }
 
@@ -68,12 +72,16 @@ func (ad *ActionDialog) showSuccess() {
 	ad.modal.SetText(fmt.Sprintf("[%s]Success:[%s] %s completed on VM %s",
 		colors.Current.OkColor.Name(),
 		colors.Current.Foreground.Name(),
-		ad.action.Name(), ad.vmid)).
-		ClearButtons().
-		AddButtons([]string{"OK"}).
-		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
-			ad.pages.RemovePage("action")
-		})
+		ad.action.Name(), ad.vmid))
+	ad.modal.ClearButtons()
+
+	// Set OK button colors after clearing: green bg/white text unselected, inverts to white bg/green text when selected
+	ad.modal.SetButtonBackgroundColor(colors.Current.OkColor)
+	ad.modal.SetButtonTextColor(colors.Current.Foreground)
+	ad.modal.AddButtons([]string{"OK"})
+	ad.modal.SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+		ad.pages.RemovePage("action")
+	})
 }
 
 // showError displays error message
@@ -81,12 +89,16 @@ func (ad *ActionDialog) showError(err error) {
 	ad.modal.SetText(fmt.Sprintf("[%s]Error:[%s] %s failed on VM %s\n\n%v",
 		colors.Current.AlertColor.Name(),
 		colors.Current.Foreground.Name(),
-		ad.action.Name(), ad.vmid, err)).
-		ClearButtons().
-		AddButtons([]string{"OK"}).
-		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
-			ad.pages.RemovePage("action")
-		})
+		ad.action.Name(), ad.vmid, err))
+	ad.modal.ClearButtons()
+
+	// Set OK button colors after clearing: green bg/white text unselected, inverts to white bg/green text when selected
+	//	ad.modal.SetButtonBackgroundColor(colors.Current.OkColor)
+	//  ad.modal.SetButtonTextColor(colors.Current.Foreground)
+	ad.modal.AddButtons([]string{"OK"})
+	ad.modal.SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+		ad.pages.RemovePage("action")
+	})
 }
 
 // Show displays the action dialog
