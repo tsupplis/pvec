@@ -1,96 +1,129 @@
 package helpdialog
 
 import (
-	"fmt"
+	"strings"
 
-	"github.com/gdamore/tcell/v2"
-	"github.com/rivo/tview"
-	"github.com/tsupplis/pvec/pkg/ui/colors"
+	"github.com/charmbracelet/lipgloss"
 )
 
-// HelpDialog displays help information about key bindings
-type HelpDialog struct {
-	frame *tview.Frame
-	pages *tview.Pages
-}
+// GetHelpText returns the formatted help text
+func GetHelpText(width, height int) string {
+	var b strings.Builder
 
-// NewHelpDialog creates a new help dialog
-func NewHelpDialog(pages *tview.Pages) *HelpDialog {
-	helpText := fmt.Sprintf(`[%s]Keyboard Shortcuts:[%s]
-
-[%s]F1 / h[%s]  - Show this help
-[%s]F2 / c[%s]  - Open configuration editor
-[%s]F3 / s[%s]  - Start selected VM/CT
-[%s]F4 / d[%s]  - Shutdown selected VM/CT
-[%s]F5 / r[%s]  - Reboot selected VM/CT
-[%s]F6 / t[%s]  - Stop (force) selected VM/CT
-[%s]F10 / q[%s] - Quit application
-
-[%s]↑ / ↓[%s]   - Navigate up/down
-[%s]PgUp/PgDn[%s] - Scroll page up/down
-[%s]Home/End[%s] - Jump to first/last item
-`,
-		colors.Current.AccentForeground.Name(), colors.Current.Foreground.Name(),
-		colors.Current.AccentForeground.Name(), colors.Current.Foreground.Name(),
-		colors.Current.AccentForeground.Name(), colors.Current.Foreground.Name(),
-		colors.Current.AccentForeground.Name(), colors.Current.Foreground.Name(),
-		colors.Current.AccentForeground.Name(), colors.Current.Foreground.Name(),
-		colors.Current.AccentForeground.Name(), colors.Current.Foreground.Name(),
-		colors.Current.AccentForeground.Name(), colors.Current.Foreground.Name(),
-		colors.Current.AccentForeground.Name(), colors.Current.Foreground.Name(),
-		colors.Current.AccentForeground.Name(), colors.Current.Foreground.Name(),
-		colors.Current.AccentForeground.Name(), colors.Current.Foreground.Name(),
-		colors.Current.AccentForeground.Name(), colors.Current.Foreground.Name())
-
-	textView := tview.NewTextView().
-		SetText(helpText).
-		SetDynamicColors(true).
-		SetTextAlign(tview.AlignLeft).
-		SetWordWrap(true)
-	textView.SetBackgroundColor(colors.Current.Background)
-
-	frame := tview.NewFrame(textView).
-		SetBorders(1, 1, 1, 1, 2, 2).
-		AddText(" Help ", true, tview.AlignCenter, colors.Current.AccentForeground).
-		AddText("Press ESC to close", false, tview.AlignCenter, colors.Current.Foreground)
-	frame.SetBorder(true).
-		SetBackgroundColor(colors.Current.Background)
-
-	return &HelpDialog{
-		frame: frame,
-		pages: pages,
+	// Help content - organized as key/action pairs
+	type helpItem struct {
+		keys   string
+		action string
 	}
-}
 
-// Show displays the help dialog
-func (h *HelpDialog) Show() {
-	// Create a responsive container with 2-char padding on all sides
-	innerFlex := tview.NewFlex().
-		SetDirection(tview.FlexRow).
-		AddItem(nil, 2, 1, false).
-		AddItem(h.frame, 0, 1, true).
-		AddItem(nil, 2, 1, false)
-	innerFlex.SetBackgroundColor(colors.Current.Background)
+	sections := []struct {
+		title string
+		items []helpItem
+	}{
+		{
+			title: "Navigation:",
+			items: []helpItem{
+				{"↑ / k", "Move up"},
+				{"↓ / j", "Move down"},
+				{"PgUp", "Scroll page up"},
+				{"PgDn", "Scroll page down"},
+			},
+		},
+		{
+			title: "Actions:",
+			items: []helpItem{
+				{"F1 / h", "Show this help"},
+				{"F2 / c", "Configuration"},
+				{"F3 / i", "Show VM/CT details"},
+				{"F4 / s", "Start VM/CT"},
+				{"F5 / d", "Shutdown VM/CT"},
+				{"F6 / r", "Reboot VM/CT"},
+				{"F7 / t", "Stop VM/CT"},
+				{"F10 / q", "Quit application"},
+				{"Ctrl+C", "Quit application"},
+			},
+		},
+	}
 
-	flex := tview.NewFlex().
-		AddItem(nil, 2, 1, false).
-		AddItem(innerFlex, 0, 1, true).
-		AddItem(nil, 2, 1, false)
-	flex.SetBackgroundColor(colors.Current.Background)
+	// Title and separator first
+	titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#008000")).Bold(true)
+	separatorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#008000"))
+	statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#008000")).Bold(true)
 
-	// Set up input handler to close on ESC
-	flex.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyEscape || event.Key() == tcell.KeyEnter {
-			h.pages.RemovePage("help")
-			return nil
+	title := "Help - Keyboard Shortcuts"
+	titlePadding := (width - len(title)) / 2
+	if titlePadding > 0 {
+		b.WriteString(strings.Repeat(" ", titlePadding))
+	}
+	b.WriteString(titleStyle.Render(title))
+	b.WriteString("\n")
+	b.WriteString(separatorStyle.Render(strings.Repeat("─", width)))
+	b.WriteString("\n\n")
+
+	// Build help lines with proper column alignment
+	var helpLines []string
+	keyColWidth := 15 // Width for the key column
+
+	for _, section := range sections {
+		helpLines = append(helpLines, section.title)
+		for _, item := range section.items {
+			// Format: "  key" + padding + "action"
+			line := "  " + item.keys
+			// Pad to keyColWidth using rune count, then add action
+			lineRunes := []rune(line)
+			if len(lineRunes) < keyColWidth {
+				line += strings.Repeat(" ", keyColWidth-len(lineRunes))
+			}
+			line += item.action
+			helpLines = append(helpLines, line)
 		}
-		return event
-	})
+		helpLines = append(helpLines, "") // Empty line between sections
+	}
 
-	h.pages.AddPage("help", flex, true, true)
-}
+	// Center content vertically (accounting for title and separator already written)
+	contentHeight := len(helpLines)
+	topPadding := (height - contentHeight - 4) / 2 // 4 for title, separator, and status bar
+	if topPadding > 2 {                            // Already have 2 lines for title and separator
+		for i := 0; i < topPadding-2; i++ {
+			b.WriteString("\n")
+		}
+	}
 
-// GetFrame returns the underlying frame
-func (h *HelpDialog) GetFrame() *tview.Frame {
-	return h.frame
+	// Calculate left padding to center the content block (not individual lines)
+	// Find the longest line to determine content width
+	maxLineLen := 0
+	for _, line := range helpLines {
+		if len(line) > maxLineLen {
+			maxLineLen = len(line)
+		}
+	}
+	leftPadding := (width - maxLineLen) / 2
+	if leftPadding < 0 {
+		leftPadding = 2 // Minimum padding
+	}
+
+	for _, line := range helpLines {
+		// Apply same left padding to all lines (left-aligned columns)
+		if leftPadding > 0 {
+			b.WriteString(strings.Repeat(" ", leftPadding))
+		}
+		b.WriteString(line)
+		b.WriteString("\n")
+	}
+
+	// Fill remaining space
+	// Calculate total lines used: title(1) + separator(1) + blank line(1) + topPadding + contentHeight
+	usedLines := 3 + (topPadding - 2) + contentHeight
+	if usedLines < 0 {
+		usedLines = 3 + contentHeight
+	}
+
+	for i := usedLines; i < height-1; i++ {
+		b.WriteString("\n")
+	}
+
+	// Status bar
+	b.WriteString(statusStyle.Render(" Press ESC or Enter to close"))
+
+	return b.String()
 }

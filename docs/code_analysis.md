@@ -13,16 +13,16 @@ This report provides comprehensive code analysis including complexity, security,
 
 | Complexity | Package | Function | File | Line |
 |------------|---------|----------|------|------|
-| ✅ 10 | `detailsdialog` | `formatValue` | `pkg/ui/detailsdialog/detailsdialog.go` | 384 |
-| ✅ 10 | `main` | `handleKeyEvent` | `main.go` | 102 |
-| ✅ 8 | `main` | `handleRuneKey` | `main.go` | 169 |
-| ✅ 7 | `configpanel` | `(*ConfigPanel).handleSave` | `pkg/ui/configpanel/configpanel.go` | 81 |
-| ✅ 7 | `proxmox` | `(*HTTPClient).GetNodes` | `pkg/proxmox/client.go` | 123 |
-| ✅ 7 | `config` | `(*ViperLoader).Load` | `pkg/config/config.go` | 44 |
-| ✅ 7 | `main` | `executeAction` | `main.go` | 266 |
-| ✅ 7 | `main` | `setupKeyHandlers` | `examples/test-ui/main.go` | 86 |
-| ✅ 7 | `main` | `main` | `examples/test-client/main.go` | 13 |
-| ✅ 6 | `mainlist` | `(*MainList).updateTable` | `pkg/ui/mainlist/mainlist.go` | 204 |
+| ⚠️ 14 | `helpdialog` | `GetHelpText` | `pkg/ui/helpdialog/helpdialog.go` | 8 |
+| ⚠️ 12 | `mainlist` | `(*listModel).View` | `pkg/ui/mainlist/mainlist.go` | 533 |
+| ⚠️ 11 | `configpanel` | `(Model).View` | `pkg/ui/configpanel/configpanel.go` | 214 |
+| ✅ 9 | `mainlist` | `(*listModel).handleFunctionKeys` | `pkg/ui/mainlist/mainlist.go` | 286 |
+| ✅ 8 | `mainlist` | `(*listModel).executeAction` | `pkg/ui/mainlist/mainlist.go` | 481 |
+| ✅ 8 | `mainlist` | `(*listModel).handleNavigationKeys` | `pkg/ui/mainlist/mainlist.go` | 352 |
+| ✅ 8 | `mainlist` | `(*listModel).Update` | `pkg/ui/mainlist/mainlist.go` | 136 |
+| ✅ 8 | `proxmox` | `(*HTTPClient).GetNodes` | `pkg/proxmox/client.go` | 122 |
+| ✅ 7 | `detailsdialog` | `formatValue` | `pkg/ui/detailsdialog/detailsdialog.go` | 299 |
+| ✅ 7 | `detailsdialog` | `GetDetailsText` | `pkg/ui/detailsdialog/detailsdialog.go` | 12 |
 
 ### Functions Requiring Attention (Complexity > 15)
 
@@ -31,7 +31,12 @@ This report provides comprehensive code analysis including complexity, security,
 
 ### Top 10 Most Cognitively Complex Functions
 
-✅ **No complex functions found** - All functions have low cognitive complexity!
+| Complexity | Package | Function | File | Line |
+|------------|---------|----------|------|------|
+| 🔶 19 | `helpdialog` | `GetHelpText` | `pkg/ui/helpdialog/helpdialog.go:8` | 1 |
+| 🔶 18 | `mainlist` | `(*listModel).View` | `pkg/ui/mainlist/mainlist.go:533` | 1 |
+| 🔶 16 | `configpanel` | `(Model).View` | `pkg/ui/configpanel/configpanel.go:214` | 1 |
+| ⚠️ 13 | `configpanel` | `(*Model).save` | `pkg/ui/configpanel/configpanel.go:176` | 1 |
 
 
 
@@ -78,28 +83,26 @@ This report provides comprehensive code analysis including complexity, security,
 
 ### Project Overview
 
-- **Total Lines of Code:** 4,359
-- **Go Files:** 26
-- **Packages:** 11
+- **Total Lines of Code:** 3,678
+- **Go Files:** 18
+- **Packages:** 10
 
 ### Package Details
 
 | Package | Go Files | Test Files | Lines | Test Lines | Test Coverage |
 |---------|----------|------------|-------|------------|---------------|
-| `pvec` | 1 | 0 | 355 | 0 | 0.0% |
+| `pvec` | 1 | 0 | 94 | 0 | 0.0% |
 | `test-client` | 1 | 0 | 58 | 0 | N/A |
-| `test-ui` | 1 | 0 | 156 | 0 | N/A |
 | `actions` | 1 | 1 | 141 | 144 | 100.0% |
-| `config` | 1 | 1 | 101 | 187 | 93.9% |
+| `config` | 1 | 1 | 102 | 187 | 94.1% |
 | `models` | 1 | 1 | 119 | 145 | 100.0% |
-| `proxmox` | 3 | 2 | 457 | 450 | 73.9% |
-| `actiondialog` | 1 | 1 | 107 | 126 | 81.0% |
-| `colors` | 1 | 1 | 38 | 105 | N/A |
-| `configpanel` | 1 | 1 | 198 | 141 | 67.2% |
-| `detailsdialog` | 1 | 1 | 452 | 359 | 69.2% |
-| `helpdialog` | 1 | 1 | 96 | 36 | 76.5% |
-| `mainlist` | 1 | 1 | 341 | 261 | 89.7% |
-| **TOTAL** | **15** | **11** | **2,619** | **1,954** | - |
+| `proxmox` | 3 | 2 | 395 | 426 | 73.2% |
+| `actiondialog` | 1 | 0 | 212 | 0 | 0.0% |
+| `configpanel` | 1 | 0 | 335 | 0 | 0.0% |
+| `detailsdialog` | 1 | 0 | 380 | 0 | 0.0% |
+| `helpdialog` | 1 | 0 | 123 | 0 | 0.0% |
+| `mainlist` | 1 | 0 | 875 | 0 | 0.0% |
+| **TOTAL** | **13** | **5** | **2,834** | **902** | - |
 
 ### Test Coverage Summary
 
@@ -107,15 +110,14 @@ This report provides comprehensive code analysis including complexity, security,
 |---------|--------|----------|
 | `pvec` | ❌ - | 0.0% |
 | `actions` | ✅ ok (cached) | 100.0% |
-| `config` | ✅ ok (cached) | 93.9% |
+| `config` | ✅ ok (cached) | 94.1% |
 | `models` | ✅ ok (cached) | 100.0% |
-| `proxmox` | ✅ ok | 73.9% |
-| `actiondialog` | ✅ ok (cached) | 81.0% |
-| `colors` | ✅ ok (cached) | N/A |
-| `configpanel` | ✅ ok (cached) | 67.2% |
-| `detailsdialog` | ✅ ok | 69.2% |
-| `helpdialog` | ✅ ok (cached) | 76.5% |
-| `mainlist` | ✅ ok (cached) | 89.7% |
+| `proxmox` | ✅ ok (cached) | 73.2% |
+| `actiondialog` | ❌ - | 0.0% |
+| `configpanel` | ❌ - | 0.0% |
+| `detailsdialog` | ❌ - | 0.0% |
+| `helpdialog` | ❌ - | 0.0% |
+| `mainlist` | ❌ - | 0.0% |
 
 ## Complexity Guidelines
 
@@ -148,7 +150,7 @@ Based on the analysis above:
 ## Analysis Timestamp
 
 
-**Generated:** 2025-11-12 20:21:02
+**Generated:** 2025-11-29 23:52:55
 
 ---
 

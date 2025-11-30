@@ -1,119 +1,234 @@
 package actiondialog
 
 import (
-	"context"
 	"fmt"
+	"strings"
 
-	"github.com/rivo/tview"
-	"github.com/tsupplis/pvec/pkg/actions"
-	"github.com/tsupplis/pvec/pkg/ui/colors"
+	"github.com/charmbracelet/lipgloss"
 )
 
-// ActionDialog displays action execution progress
-type ActionDialog struct {
-	modal  *tview.Modal
-	pages  *tview.Pages
-	action actions.Action
-	vmid   string
-}
+// GetExecutingText shows action in progress
+func GetExecutingText(actionName, vmName, vmid string, width, height int) string {
+	var b strings.Builder
 
-// NewActionDialog creates a new action dialog
-func NewActionDialog(pages *tview.Pages, action actions.Action, vmid string) *ActionDialog {
-	ad := &ActionDialog{
-		pages:  pages,
-		action: action,
-		vmid:   vmid,
+	// Dialog content
+	title := "Action in Progress"
+	message := fmt.Sprintf("Executing %s on %s (%s)...", actionName, vmName, vmid)
+	footer := "Please wait..."
+
+	// Calculate dialog dimensions
+	dialogWidth := len(message) + 4
+	if len(title)+4 > dialogWidth {
+		dialogWidth = len(title) + 4
+	}
+	if len(footer)+4 > dialogWidth {
+		dialogWidth = len(footer) + 4
+	}
+	if dialogWidth > width-4 {
+		dialogWidth = width - 4
 	}
 
-	ad.modal = tview.NewModal().
-		SetText(fmt.Sprintf("[%s]Executing %s on VM %s...",
-			colors.Current.Foreground.Name(), action.Name(), vmid)).
-		AddButtons([]string{"Cancel"}).
-		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
-			if buttonLabel == "Cancel" {
-				pages.RemovePage("action")
-			}
-		})
+	dialogHeight := 7
+	topPadding := (height - dialogHeight) / 2
+	leftPadding := (width - dialogWidth) / 2
 
-	ad.modal.SetBackgroundColor(colors.Current.Background)
-	ad.modal.Box.SetBackgroundColor(colors.Current.Background).
-		SetBorderColor(colors.Current.Foreground)
+	// Fill top padding
+	for i := 0; i < topPadding; i++ {
+		b.WriteString("\n")
+	}
 
-	// Style buttons - unselected: white on dark green, selected: white on black (tview inverts)
-	ad.modal.SetButtonBackgroundColor(colors.Current.ActiveBackground).
-		SetButtonTextColor(colors.Current.ActiveForeground)
+	// Top border
+	b.WriteString(strings.Repeat(" ", leftPadding))
+	b.WriteString("┌" + strings.Repeat("─", dialogWidth-2) + "┐\n")
 
-	return ad
+	// Title
+	titlePad := (dialogWidth - 4 - len(title)) / 2
+	b.WriteString(strings.Repeat(" ", leftPadding))
+	b.WriteString("│ " + strings.Repeat(" ", titlePad) + title + strings.Repeat(" ", dialogWidth-4-titlePad-len(title)) + " │\n")
+
+	// Separator
+	b.WriteString(strings.Repeat(" ", leftPadding))
+	b.WriteString("├" + strings.Repeat("─", dialogWidth-2) + "┤\n")
+
+	// Message
+	msgPad := (dialogWidth - 4 - len(message)) / 2
+	b.WriteString(strings.Repeat(" ", leftPadding))
+	b.WriteString("│ " + strings.Repeat(" ", msgPad) + message + strings.Repeat(" ", dialogWidth-4-msgPad-len(message)) + " │\n")
+
+	// Empty line
+	b.WriteString(strings.Repeat(" ", leftPadding))
+	b.WriteString("│" + strings.Repeat(" ", dialogWidth-2) + "│\n")
+
+	// Footer
+	footerPad := (dialogWidth - 4 - len(footer)) / 2
+	b.WriteString(strings.Repeat(" ", leftPadding))
+	b.WriteString("│ " + strings.Repeat(" ", footerPad) + footer + strings.Repeat(" ", dialogWidth-4-footerPad-len(footer)) + " │\n")
+
+	// Bottom border
+	b.WriteString(strings.Repeat(" ", leftPadding))
+	b.WriteString("└" + strings.Repeat("─", dialogWidth-2) + "┘\n")
+
+	return b.String()
 }
 
-// Execute runs the action and shows result
-func (ad *ActionDialog) Execute(ctx context.Context) {
-	// Update modal text
-	ad.modal.SetText(fmt.Sprintf("[%s]Executing[%s] %s on VM %s...",
-		colors.Current.WarningColor.Name(),
-		colors.Current.Foreground.Name(),
-		ad.action.Name(), ad.vmid))
+// GetSuccessText shows action completed successfully
+func GetSuccessText(actionName, vmName, vmid string, width, height int) string {
+	var b strings.Builder
 
-	// Execute action in goroutine
-	go func() {
-		err := ad.action.Execute(ctx)
+	borderStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#008000"))
+	titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#008000")).Bold(true)
 
-		// Update UI on main thread
-		if err != nil {
-			ad.showError(err)
-		} else {
-			ad.showSuccess()
-		}
-	}()
+	// Dialog content
+	title := "Success"
+	message := fmt.Sprintf("%s completed on %s (%s)", actionName, vmName, vmid)
+	footer := "Press any key to continue"
+
+	// Calculate dialog dimensions
+	dialogWidth := len(message) + 4
+	if len(title)+4 > dialogWidth {
+		dialogWidth = len(title) + 4
+	}
+	if len(footer)+4 > dialogWidth {
+		dialogWidth = len(footer) + 4
+	}
+	if dialogWidth > width-4 {
+		dialogWidth = width - 4
+	}
+
+	dialogHeight := 7
+	topPadding := (height - dialogHeight) / 2
+	leftPadding := (width - dialogWidth) / 2
+
+	// Fill top padding
+	for i := 0; i < topPadding; i++ {
+		b.WriteString("\n")
+	}
+
+	// Top border
+	b.WriteString(strings.Repeat(" ", leftPadding))
+	b.WriteString(borderStyle.Render("┌" + strings.Repeat("─", dialogWidth-2) + "┐"))
+	b.WriteString("\n")
+
+	// Title
+	titlePad := (dialogWidth - 4 - len(title)) / 2
+	b.WriteString(strings.Repeat(" ", leftPadding))
+	b.WriteString(borderStyle.Render("│") + " " + titleStyle.Render(strings.Repeat(" ", titlePad)+title+strings.Repeat(" ", dialogWidth-4-titlePad-len(title))) + " " + borderStyle.Render("│"))
+	b.WriteString("\n")
+
+	// Separator
+	b.WriteString(strings.Repeat(" ", leftPadding))
+	b.WriteString(borderStyle.Render("├" + strings.Repeat("─", dialogWidth-2) + "┤"))
+	b.WriteString("\n")
+
+	// Message
+	msgPad := (dialogWidth - 4 - len(message)) / 2
+	b.WriteString(strings.Repeat(" ", leftPadding))
+	b.WriteString(borderStyle.Render("│") + " " + strings.Repeat(" ", msgPad) + message + strings.Repeat(" ", dialogWidth-4-msgPad-len(message)) + " " + borderStyle.Render("│"))
+	b.WriteString("\n")
+
+	// Empty line
+	b.WriteString(strings.Repeat(" ", leftPadding))
+	b.WriteString(borderStyle.Render("│" + strings.Repeat(" ", dialogWidth-2) + "│"))
+	b.WriteString("\n")
+
+	// Footer
+	footerPad := (dialogWidth - 4 - len(footer)) / 2
+	b.WriteString(strings.Repeat(" ", leftPadding))
+	b.WriteString(borderStyle.Render("│") + " " + strings.Repeat(" ", footerPad) + footer + strings.Repeat(" ", dialogWidth-4-footerPad-len(footer)) + " " + borderStyle.Render("│"))
+	b.WriteString("\n")
+
+	// Bottom border
+	b.WriteString(strings.Repeat(" ", leftPadding))
+	b.WriteString(borderStyle.Render("└" + strings.Repeat("─", dialogWidth-2) + "┘"))
+	b.WriteString("\n")
+
+	return b.String()
 }
 
-// showSuccess displays success message
-func (ad *ActionDialog) showSuccess() {
-	ad.modal.SetText(fmt.Sprintf("[%s]Success:[%s] %s completed on VM %s",
-		colors.Current.OkColor.Name(),
-		colors.Current.Foreground.Name(),
-		ad.action.Name(), ad.vmid))
-	ad.modal.ClearButtons()
+// GetErrorText shows action failed
+func GetErrorText(actionName, vmName, vmid string, errorMsg string, width, height int) string {
+	var b strings.Builder
 
-	// Set OK button colors after clearing: green bg/white text unselected, inverts to white bg/green text when selected
-	ad.modal.SetButtonBackgroundColor(colors.Current.OkColor)
-	ad.modal.SetButtonTextColor(colors.Current.Foreground)
-	ad.modal.AddButtons([]string{"OK"})
-	ad.modal.SetDoneFunc(func(buttonIndex int, buttonLabel string) {
-		ad.pages.RemovePage("action")
-	})
-}
+	borderStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#008000"))
+	titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#008000")).Bold(true)
 
-// showError displays error message
-func (ad *ActionDialog) showError(err error) {
-	ad.modal.SetText(fmt.Sprintf("[%s]Error:[%s] %s failed on VM %s\n\n%v",
-		colors.Current.AlertColor.Name(),
-		colors.Current.Foreground.Name(),
-		ad.action.Name(), ad.vmid, err))
-	ad.modal.ClearButtons()
+	// Dialog content
+	title := "Error"
+	message := fmt.Sprintf("%s failed on %s (%s)", actionName, vmName, vmid)
+	footer := "Press any key to continue"
 
-	// Set OK button colors after clearing: green bg/white text unselected, inverts to white bg/green text when selected
-	//	ad.modal.SetButtonBackgroundColor(colors.Current.OkColor)
-	//  ad.modal.SetButtonTextColor(colors.Current.Foreground)
-	ad.modal.AddButtons([]string{"OK"})
-	ad.modal.SetDoneFunc(func(buttonIndex int, buttonLabel string) {
-		ad.pages.RemovePage("action")
-	})
-}
+	// Calculate dialog dimensions
+	dialogWidth := len(message) + 4
+	if len(errorMsg)+4 > dialogWidth {
+		dialogWidth = len(errorMsg) + 4
+	}
+	if len(title)+4 > dialogWidth {
+		dialogWidth = len(title) + 4
+	}
+	if len(footer)+4 > dialogWidth {
+		dialogWidth = len(footer) + 4
+	}
+	if dialogWidth > width-4 {
+		dialogWidth = width - 4
+	}
 
-// Show displays the action dialog
-func (ad *ActionDialog) Show() {
-	// Wrap in flex for consistent background
-	flex := tview.NewFlex().
-		AddItem(nil, 0, 1, false).
-		AddItem(ad.modal, 0, 1, true).
-		AddItem(nil, 0, 1, false)
-	flex.SetBackgroundColor(colors.Current.Background)
+	dialogHeight := 8
+	topPadding := (height - dialogHeight) / 2
+	leftPadding := (width - dialogWidth) / 2
 
-	ad.pages.AddPage("action", flex, true, true)
-}
+	// Fill top padding
+	for i := 0; i < topPadding; i++ {
+		b.WriteString("\n")
+	}
 
-// GetModal returns the underlying modal
-func (ad *ActionDialog) GetModal() *tview.Modal {
-	return ad.modal
+	// Top border
+	b.WriteString(strings.Repeat(" ", leftPadding))
+	b.WriteString(borderStyle.Render("┌" + strings.Repeat("─", dialogWidth-2) + "┐"))
+	b.WriteString("\n")
+
+	// Title
+	titlePad := (dialogWidth - 4 - len(title)) / 2
+	b.WriteString(strings.Repeat(" ", leftPadding))
+	b.WriteString(borderStyle.Render("│") + " " + titleStyle.Render(strings.Repeat(" ", titlePad)+title+strings.Repeat(" ", dialogWidth-4-titlePad-len(title))) + " " + borderStyle.Render("│"))
+	b.WriteString("\n")
+
+	// Separator
+	b.WriteString(strings.Repeat(" ", leftPadding))
+	b.WriteString(borderStyle.Render("├" + strings.Repeat("─", dialogWidth-2) + "┤"))
+	b.WriteString("\n")
+
+	// Message
+	msgPad := (dialogWidth - 4 - len(message)) / 2
+	b.WriteString(strings.Repeat(" ", leftPadding))
+	b.WriteString(borderStyle.Render("│") + " " + strings.Repeat(" ", msgPad) + message + strings.Repeat(" ", dialogWidth-4-msgPad-len(message)) + " " + borderStyle.Render("│"))
+	b.WriteString("\n")
+
+	// Error message
+	// Truncate error if too long
+	maxErrLen := dialogWidth - 4
+	if len(errorMsg) > maxErrLen {
+		errorMsg = errorMsg[:maxErrLen-3] + "..."
+	}
+	errPad := (dialogWidth - 4 - len(errorMsg)) / 2
+	b.WriteString(strings.Repeat(" ", leftPadding))
+	b.WriteString(borderStyle.Render("│") + " " + strings.Repeat(" ", errPad) + errorMsg + strings.Repeat(" ", dialogWidth-4-errPad-len(errorMsg)) + " " + borderStyle.Render("│"))
+	b.WriteString("\n")
+
+	// Empty line
+	b.WriteString(strings.Repeat(" ", leftPadding))
+	b.WriteString(borderStyle.Render("│" + strings.Repeat(" ", dialogWidth-2) + "│"))
+	b.WriteString("\n")
+
+	// Footer
+	footerPad := (dialogWidth - 4 - len(footer)) / 2
+	b.WriteString(strings.Repeat(" ", leftPadding))
+	b.WriteString(borderStyle.Render("│") + " " + strings.Repeat(" ", footerPad) + footer + strings.Repeat(" ", dialogWidth-4-footerPad-len(footer)) + " " + borderStyle.Render("│"))
+	b.WriteString("\n")
+
+	// Bottom border
+	b.WriteString(strings.Repeat(" ", leftPadding))
+	b.WriteString(borderStyle.Render("└" + strings.Repeat("─", dialogWidth-2) + "┘"))
+	b.WriteString("\n")
+
+	return b.String()
 }

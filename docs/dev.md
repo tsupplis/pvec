@@ -14,26 +14,26 @@ pvec/
 │   ├── config/        # Configuration management
 │   ├── models/        # Data models (VMStatus, NodeList)
 │   ├── proxmox/       # Proxmox API client
-│   └── ui/            # TUI components
-│       ├── mainlist/      # Main scrolling list
-│       ├── helpdialog/    # Help modal
-│       ├── configpanel/   # Config editor
-│       ├── actiondialog/  # Action progress dialog
-│       └── colors/        # Centralized color theme
+│   └── ui/            # Bubble Tea TUI components
+│       ├── mainlist/      # Main interactive list
+│       ├── helpdialog/    # Help text generator
+│       ├── configpanel/   # Config editor (Bubble Tea model)
+│       ├── actiondialog/  # Action progress dialogs
+│       └── detailsdialog/ # VM/CT details display
 ├── examples/
-│   ├── test-client/   # CLI test client
-│   └── test-ui/       # Interactive TUI test
+│   └── test-client/   # CLI test client
 ├── scripts/           # Code analysis tools
 └── docs/              # Documentation
 ```
 
 ## Key Design Patterns
 
+- **Bubble Tea Architecture**: Model-View-Update (MVU) pattern for UI components
 - **Dependency Injection**: All components receive dependencies via constructors
 - **Interface-based Design**: Client, Executor, DataProvider, Loader interfaces
 - **Clean Separation**: UI components don't directly interact with API client
-- **Testability**: 86.1% test coverage with comprehensive mock implementations
-- **Centralized Theming**: All colors managed through `pkg/ui/colors` package
+- **Testability**: Comprehensive test coverage for business logic with mock implementations
+- **Hybrid UI Pattern**: Full Bubble Tea models for stateful components, stateless generators for simple displays
 
 ## Prerequisites
 
@@ -170,47 +170,29 @@ Interactive TUI with keyboard navigation (without action execution).
 
 ## UI Development
 
-### Color Theme System
+### Bubble Tea Components
 
-All colors are centralized in `pkg/ui/colors/colors.go`:
+The UI uses two patterns:
 
-```go
-type Theme struct {
-    Background       tcell.Color  // Black
-    Foreground       tcell.Color  // White
-    ActiveBackground tcell.Color  // Dark Green
-    ActiveForeground tcell.Color  // White
-    AccentForeground tcell.Color  // Green
-    AlertColor       tcell.Color  // Red
-    WarningColor     tcell.Color  // Orange
-    OkColor          tcell.Color  // Green
-    DisabledColor    tcell.Color  // Gray
-}
-```
+1. **Full Bubble Tea Models** (for stateful, interactive components):
+   - Implement `Init() tea.Cmd`, `Update(tea.Msg) (tea.Model, tea.Cmd)`, `View() string`
+   - Maintain internal state (input fields, cursor positions, etc.)
+   - Example: `configpanel.Model`
+   - Must receive `tea.WindowSizeMsg` and capture returned model during initialization
 
-Additional colors:
-- `VMColor`: Light Blue (for QEMU VMs)
-- `CTColor`: Light Cyan (for LXC containers)
-
-**Important**: Always use `colors.Current.*` in UI components, never hardcode colors.
-
-### Modal Backgrounds
-
-When creating modals, ALWAYS set both:
-```go
-modal.SetBackgroundColor(colors.Current.Background)
-modal.Box.SetBackgroundColor(colors.Current.Background)
-```
-
-This overrides tview's internal blue defaults.
+2. **Stateless Text Generators** (for simple displays):
+   - Functions that take width/height parameters and return formatted strings
+   - No state to maintain, rendered fresh each call
+   - Example: `helpdialog.GetHelpText(width, height)`
+   - Simpler and faster for non-interactive content
 
 ### Adding New UI Components
 
 1. Create new package under `pkg/ui/`
-2. Import and use `colors.Current.*` for all colors
+2. Choose pattern: Full Bubble Tea model (stateful) or text generator (stateless)
 3. Accept dependencies via constructor (no globals)
-4. Create interfaces for testability
-5. Write tests with >75% coverage
+4. For Bubble Tea models: Implement Init/Update/View, handle WindowSizeMsg
+5. Create interfaces for testability
 6. Document exported functions
 
 ## Contributing
@@ -290,8 +272,9 @@ go build -o ./bin/pvec .
 
 ### Runtime Dependencies
 
-- [tview](https://github.com/rivo/tview) v0.42.0 - Terminal UI library
-- [tcell](https://github.com/gdamore/tcell) v2.9.0 - Terminal handling
+- [Bubble Tea](https://github.com/charmbracelet/bubbletea) v1.3.10 - Terminal UI framework
+- [Bubbles](https://github.com/charmbracelet/bubbles) - TUI components (textinput, etc.)
+- [Lipgloss](https://github.com/charmbracelet/lipgloss) - Terminal styling
 - [viper](https://github.com/spf13/viper) - Configuration management
 
 ### Development Dependencies
@@ -319,6 +302,6 @@ go install github.com/securego/gosec/v2/cmd/gosec@latest
 ## Additional Resources
 
 - [Code Analysis Report](code_analysis.md) - Detailed code metrics
-- [Color Documentation](colors.md) - Color theme system details
 - [API Documentation](https://pkg.go.dev/github.com/tsupplis/pvec) - Go package docs
 - [Proxmox API Reference](https://pve.proxmox.com/pve-docs/api-viewer/) - Proxmox API docs
+- [Bubble Tea Tutorial](https://github.com/charmbracelet/bubbletea/tree/master/tutorials) - Official tutorials

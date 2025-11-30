@@ -3,12 +3,20 @@ package mainlist
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/rivo/tview"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/tsupplis/pvec/pkg/actions"
+	"github.com/tsupplis/pvec/pkg/config"
 	"github.com/tsupplis/pvec/pkg/models"
-	"github.com/tsupplis/pvec/pkg/ui/colors"
+	"github.com/tsupplis/pvec/pkg/proxmox"
+	"github.com/tsupplis/pvec/pkg/ui/actiondialog"
+	"github.com/tsupplis/pvec/pkg/ui/configpanel"
+	"github.com/tsupplis/pvec/pkg/ui/detailsdialog"
+	"github.com/tsupplis/pvec/pkg/ui/helpdialog"
 )
 
 // DataProvider is the interface for fetching node data
@@ -18,54 +26,95 @@ type DataProvider interface {
 
 // MainList is the main scrolling list component
 type MainList struct {
-	table          *tview.Table
+	program        *tea.Program
+	model          *listModel
 	nodes          []*models.VMStatus
-	sortedNodes    []*models.VMStatus // Nodes in display order
-	selectedRow    int
+	sortedNodes    []*models.VMStatus
+	selectedIdx    int
 	provider       DataProvider
+	client         proxmox.Client
 	refreshTicker  *time.Ticker
 	stopRefresh    chan bool
 	refreshMutex   sync.Mutex
 	refreshEnabled bool
-	app            *tview.Application
-	onNodesUpdated func([]*models.VMStatus) // Callback when nodes are refreshed
+	onNodesUpdated func([]*models.VMStatus)
+	lastError      error
+	appConfig      *config.Config
+	configLoader   config.Loader
 }
+
+type listModel struct {
+	parent         *MainList
+	width          int
+	height         int
+	scrollOffset   int
+	cursorPosition int
+	showHelp       bool
+	showDetails    bool
+	detailsVM      *models.VMStatus
+	detailsConfig  map[string]interface{}
+	detailsLoading bool
+	detailsError   error
+	detailsScroll  int
+	showAction     bool
+	actionVM       *models.VMStatus
+	actionName     string
+	actionDone     bool
+	actionError    error
+	showConfig     bool
+	configModel    *configpanel.Model
+}
+
+type refreshMsg struct {
+	nodes []*models.VMStatus
+	err   error
+}
+
+type configLoadedMsg struct {
+	config map[string]interface{}
+	err    error
+}
+
+type actionResultMsg struct {
+	err error
+}
+
+type tickMsg time.Time
 
 // Config holds the configuration for the main list
 type Config struct {
 	RefreshInterval time.Duration
 	Provider        DataProvider
-	App             *tview.Application
+	Client          proxmox.Client           // For fetching detailed config
 	OnNodesUpdated  func([]*models.VMStatus) // Callback when nodes are refreshed
+	AppConfig       *config.Config           // Application configuration
+	ConfigLoader    config.Loader            // Configuration loader
 }
 
 // NewMainList creates a new main list component
 func NewMainList(cfg Config) *MainList {
-	table := tview.NewTable().
-		SetBorders(false).
-		SetSelectable(true, false).
-		SetFixed(1, 0)
-
 	ml := &MainList{
-		table:          table,
 		nodes:          make([]*models.VMStatus, 0),
-		selectedRow:    1,
+		selectedIdx:    0,
 		provider:       cfg.Provider,
+		client:         cfg.Client,
 		stopRefresh:    make(chan bool),
 		refreshEnabled: true,
-		app:            cfg.App,
 		onNodesUpdated: cfg.OnNodesUpdated,
+		appConfig:      cfg.AppConfig,
+		configLoader:   cfg.ConfigLoader,
 	}
 
-	// Set up table styling
-	ml.table.SetBorder(true).
-		SetTitle(" Proxmox VMs & Containers ").
-		SetTitleAlign(tview.AlignLeft)
+	model := &listModel{
+		parent:         ml,
+		width:          80,
+		height:         24,
+		cursorPosition: 0,
+		scrollOffset:   0,
+	}
 
-	// Set up selection change handler
-	ml.table.SetSelectionChangedFunc(func(row, col int) {
-		ml.selectedRow = row
-	})
+	ml.model = model
+	ml.program = tea.NewProgram(model, tea.WithAltScreen())
 
 	// Start auto-refresh
 	if cfg.RefreshInterval > 0 {
@@ -76,9 +125,665 @@ func NewMainList(cfg Config) *MainList {
 	return ml
 }
 
-// GetTable returns the underlying tview table
-func (ml *MainList) GetTable() *tview.Table {
-	return ml.table
+// Init implements tea.Model
+func (m *listModel) Init() tea.Cmd {
+	// Trigger initial refresh
+	go m.parent.performRefresh()
+	return tickCmd()
+}
+
+// Update implements tea.Model
+func (m *listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Handle config panel messages
+	if handled, model, cmd := m.handleConfigPanelMsg(msg); handled {
+		return model, cmd
+	}
+
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		return m.handleWindowSize(msg)
+	case tea.KeyMsg:
+		return m.handleKeyPress(msg)
+	case refreshMsg:
+		return m.handleRefresh(msg)
+	case configLoadedMsg:
+		return m.handleConfigLoaded(msg)
+	case actionResultMsg:
+		return m.handleActionResult(msg)
+	case tickMsg:
+		return m, tickCmd()
+	}
+
+	return m, nil
+}
+
+// handleConfigPanelMsg handles config panel related messages
+func (m *listModel) handleConfigPanelMsg(msg tea.Msg) (bool, tea.Model, tea.Cmd) {
+	if _, ok := msg.(configpanel.CloseMsg); ok {
+		m.showConfig = false
+		return true, m, nil
+	}
+
+	if m.showConfig && m.configModel != nil {
+		updatedModel, cmd := m.configModel.Update(msg)
+		if updated, ok := updatedModel.(configpanel.Model); ok {
+			m.configModel = &updated
+		}
+		return true, m, cmd
+	}
+
+	return false, m, nil
+}
+
+// handleWindowSize updates dimensions
+func (m *listModel) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
+	m.width = msg.Width
+	m.height = msg.Height
+	return m, nil
+}
+
+// handleRefresh processes node list refresh
+func (m *listModel) handleRefresh(msg refreshMsg) (tea.Model, tea.Cmd) {
+	m.parent.refreshMutex.Lock()
+	m.parent.nodes = msg.nodes
+	m.parent.lastError = msg.err
+	if msg.nodes != nil {
+		m.parent.sortedNodes = sortNodes(msg.nodes)
+	}
+	m.parent.refreshMutex.Unlock()
+
+	if m.parent.onNodesUpdated != nil && msg.nodes != nil {
+		m.parent.onNodesUpdated(msg.nodes)
+	}
+	return m, nil
+}
+
+// handleConfigLoaded processes loaded VM config
+func (m *listModel) handleConfigLoaded(msg configLoadedMsg) (tea.Model, tea.Cmd) {
+	m.detailsLoading = false
+	m.detailsConfig = msg.config
+	m.detailsError = msg.err
+	return m, nil
+}
+
+// handleActionResult processes action execution result
+func (m *listModel) handleActionResult(msg actionResultMsg) (tea.Model, tea.Cmd) {
+	m.actionDone = true
+	m.actionError = msg.err
+	return m, nil
+}
+
+func (m *listModel) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Check if any dialog is open and handle accordingly
+	if handled, model, cmd := m.handleDialogKeys(msg); handled {
+		return model, cmd
+	}
+
+	// Handle function keys (F1-F10)
+	if handled, model, cmd := m.handleFunctionKeys(msg); handled {
+		return model, cmd
+	}
+
+	// Handle list navigation
+	return m.handleNavigationKeys(msg)
+}
+
+// handleDialogKeys processes keys when a dialog is open
+func (m *listModel) handleDialogKeys(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
+	if m.showHelp {
+		return m.handleHelpDialogKeys(msg)
+	}
+	if m.showDetails {
+		return m.handleDetailsDialogKeys(msg)
+	}
+	if m.showAction {
+		return m.handleActionDialogKeys()
+	}
+	return false, m, nil
+}
+
+// handleHelpDialogKeys handles keys when help dialog is open
+func (m *listModel) handleHelpDialogKeys(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "enter":
+		m.showHelp = false
+		return true, m, nil
+	}
+	return true, m, nil
+}
+
+// handleDetailsDialogKeys handles keys when details dialog is open
+func (m *listModel) handleDetailsDialogKeys(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "enter":
+		m.showDetails = false
+		m.detailsScroll = 0
+		return true, m, nil
+	case "up", "k":
+		if m.detailsScroll > 0 {
+			m.detailsScroll--
+		}
+		return true, m, nil
+	case "down", "j":
+		m.detailsScroll++
+		return true, m, nil
+	}
+	return true, m, nil
+}
+
+// handleActionDialogKeys handles keys when action dialog is open
+func (m *listModel) handleActionDialogKeys() (bool, tea.Model, tea.Cmd) {
+	if m.actionDone {
+		m.showAction = false
+		m.actionDone = false
+		m.actionError = nil
+		return true, m, nil
+	}
+	return true, m, nil
+}
+
+// handleFunctionKeys processes function key presses
+func (m *listModel) handleFunctionKeys(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "f1", "h":
+		return m.handleHelpKey()
+	case "f2", "c":
+		return m.handleConfigKey()
+	case "f3", "enter":
+		return m.handleDetailsKey()
+	case "f4", "s":
+		return m.handleActionKey("start")
+	case "f5", "d":
+		return m.handleActionKey("shutdown")
+	case "f6", "r":
+		return m.handleActionKey("reboot")
+	case "f7", "t":
+		return m.handleActionKey("stop")
+	case "f10", "q", "ctrl+c":
+		return true, m, tea.Quit
+	}
+	return false, m, nil
+}
+
+// handleHelpKey shows the help dialog
+func (m *listModel) handleHelpKey() (bool, tea.Model, tea.Cmd) {
+	m.showHelp = true
+	return true, m, nil
+}
+
+// handleConfigKey shows the config panel
+func (m *listModel) handleConfigKey() (bool, tea.Model, tea.Cmd) {
+	m.showConfig = true
+	if m.configModel == nil && m.parent.appConfig != nil && m.parent.configLoader != nil {
+		model := configpanel.NewModel(m.parent.appConfig, m.parent.configLoader)
+		updatedModel, _ := model.Update(tea.WindowSizeMsg{Width: m.width, Height: m.height})
+		if updated, ok := updatedModel.(configpanel.Model); ok {
+			m.configModel = &updated
+		}
+	}
+	return true, m, nil
+}
+
+// handleDetailsKey shows details for selected VM
+func (m *listModel) handleDetailsKey() (bool, tea.Model, tea.Cmd) {
+	m.parent.refreshMutex.Lock()
+	if m.parent.selectedIdx >= 0 && m.parent.selectedIdx < len(m.parent.sortedNodes) {
+		vm := m.parent.sortedNodes[m.parent.selectedIdx]
+		m.parent.refreshMutex.Unlock()
+		m.showDetails = true
+		m.detailsVM = vm
+		m.detailsLoading = true
+		m.detailsConfig = nil
+		m.detailsError = nil
+		m.detailsScroll = 0
+		return true, m, m.loadConfig(vm)
+	}
+	m.parent.refreshMutex.Unlock()
+	return true, m, nil
+}
+
+// handleActionKey executes an action on selected VM
+func (m *listModel) handleActionKey(action string) (bool, tea.Model, tea.Cmd) {
+	model, cmd := m.executeAction(action)
+	return true, model, cmd
+}
+
+// handleNavigationKeys processes list navigation keys
+func (m *listModel) handleNavigationKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	m.parent.refreshMutex.Lock()
+	defer m.parent.refreshMutex.Unlock()
+
+	maxIdx := len(m.parent.sortedNodes) - 1
+	if maxIdx < 0 {
+		return m, nil
+	}
+
+	switch msg.String() {
+	case "up", "k":
+		m.moveCursorUp()
+	case "down", "j":
+		m.moveCursorDown(maxIdx)
+	case "home", "g":
+		m.moveCursorHome()
+	case "end", "G":
+		m.moveCursorEnd(maxIdx)
+	case "pgup":
+		m.moveCursorPageUp()
+	case "pgdown":
+		m.moveCursorPageDown(maxIdx)
+	}
+
+	return m, nil
+}
+
+// moveCursorUp moves cursor up one position
+func (m *listModel) moveCursorUp() {
+	if m.cursorPosition > 0 {
+		m.cursorPosition--
+		m.parent.selectedIdx = m.cursorPosition
+		if m.cursorPosition < m.scrollOffset {
+			m.scrollOffset = m.cursorPosition
+		}
+	}
+}
+
+// moveCursorDown moves cursor down one position
+func (m *listModel) moveCursorDown(maxIdx int) {
+	if m.cursorPosition < maxIdx {
+		m.cursorPosition++
+		m.parent.selectedIdx = m.cursorPosition
+		visibleRows := m.height - 4
+		if m.cursorPosition >= m.scrollOffset+visibleRows {
+			m.scrollOffset = m.cursorPosition - visibleRows + 1
+		}
+	}
+}
+
+// moveCursorHome moves cursor to first position
+func (m *listModel) moveCursorHome() {
+	m.cursorPosition = 0
+	m.parent.selectedIdx = 0
+	m.scrollOffset = 0
+}
+
+// moveCursorEnd moves cursor to last position
+func (m *listModel) moveCursorEnd(maxIdx int) {
+	m.cursorPosition = maxIdx
+	m.parent.selectedIdx = maxIdx
+	visibleRows := m.height - 4
+	if maxIdx >= visibleRows {
+		m.scrollOffset = maxIdx - visibleRows + 1
+	}
+}
+
+// moveCursorPageUp moves cursor up one page
+func (m *listModel) moveCursorPageUp() {
+	visibleRows := m.height - 4
+	m.cursorPosition -= visibleRows
+	if m.cursorPosition < 0 {
+		m.cursorPosition = 0
+	}
+	m.parent.selectedIdx = m.cursorPosition
+	m.scrollOffset = m.cursorPosition
+}
+
+// moveCursorPageDown moves cursor down one page
+func (m *listModel) moveCursorPageDown(maxIdx int) {
+	visibleRows := m.height - 4
+	m.cursorPosition += visibleRows
+	if m.cursorPosition > maxIdx {
+		m.cursorPosition = maxIdx
+	}
+	m.parent.selectedIdx = m.cursorPosition
+	if m.cursorPosition >= visibleRows {
+		m.scrollOffset = m.cursorPosition - visibleRows + 1
+	}
+}
+
+// loadConfig fetches VM config in background
+func (m *listModel) loadConfig(vm *models.VMStatus) tea.Cmd {
+	return func() tea.Msg {
+		if m.parent.client == nil {
+			return configLoadedMsg{config: nil, err: fmt.Errorf("client not available")}
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		config, err := m.parent.client.GetVMConfig(ctx, vm.Node, vm.Type, vm.VMID)
+		return configLoadedMsg{config: config, err: err}
+	}
+}
+
+// executorAdapter wraps proxmox.Client to match actions.Executor interface
+type executorAdapter struct {
+	client proxmox.Client
+	node   string
+	vmType string
+}
+
+func (e *executorAdapter) Start(ctx context.Context, vmid string) error {
+	return e.client.Start(ctx, e.node, e.vmType, vmid)
+}
+
+func (e *executorAdapter) Shutdown(ctx context.Context, vmid string) error {
+	return e.client.Shutdown(ctx, e.node, e.vmType, vmid)
+}
+
+func (e *executorAdapter) Reboot(ctx context.Context, vmid string) error {
+	return e.client.Reboot(ctx, e.node, e.vmType, vmid)
+}
+
+func (e *executorAdapter) Stop(ctx context.Context, vmid string) error {
+	return e.client.Stop(ctx, e.node, e.vmType, vmid)
+}
+
+func (m *listModel) executeAction(actionName string) (tea.Model, tea.Cmd) {
+	m.parent.refreshMutex.Lock()
+	if m.parent.selectedIdx < 0 || m.parent.selectedIdx >= len(m.parent.sortedNodes) {
+		m.parent.refreshMutex.Unlock()
+		return m, nil
+	}
+	vm := m.parent.sortedNodes[m.parent.selectedIdx]
+	m.parent.refreshMutex.Unlock()
+
+	// Show action dialog in executing state
+	m.showAction = true
+	m.actionVM = vm
+	m.actionName = actionName
+	m.actionDone = false
+	m.actionError = nil
+
+	// Execute action asynchronously
+	return m, func() tea.Msg {
+		if m.parent.client == nil {
+			return actionResultMsg{err: fmt.Errorf("client not available")}
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+
+		// Create adapter to match actions.Executor interface
+		executor := &executorAdapter{
+			client: m.parent.client,
+			node:   vm.Node,
+			vmType: vm.Type,
+		}
+
+		var action actions.Action
+		switch actionName {
+		case "start":
+			action = actions.NewStartAction(executor, vm)
+		case "shutdown":
+			action = actions.NewShutdownAction(executor, vm)
+		case "reboot":
+			action = actions.NewRebootAction(executor, vm)
+		case "stop":
+			action = actions.NewStopAction(executor, vm)
+		default:
+			return actionResultMsg{err: fmt.Errorf("unknown action: %s", actionName)}
+		}
+
+		err := action.Execute(ctx)
+		return actionResultMsg{err: err}
+	}
+}
+
+// View implements tea.Model
+func (m *listModel) View() string {
+	// Show help dialog if requested (full screen)
+	if m.showHelp {
+		return helpdialog.GetHelpText(m.width, m.height)
+	}
+
+	// Show config panel if requested (full screen)
+	if m.showConfig && m.configModel != nil {
+		return m.configModel.View()
+	}
+
+	// Show details dialog if requested (full screen)
+	if m.showDetails && m.detailsVM != nil {
+		if m.detailsLoading {
+			return detailsdialog.GetLoadingText(m.detailsVM, m.width, m.height)
+		} else if m.detailsError != nil {
+			return detailsdialog.GetErrorText(m.detailsVM, m.detailsError, m.width, m.height)
+		} else {
+			return detailsdialog.GetDetailsText(m.detailsVM, m.detailsConfig, m.width, m.height, m.detailsScroll)
+		}
+	}
+
+	// Render main list first
+	mainView := m.renderMainList()
+
+	// Overlay action dialog if requested
+	if m.showAction && m.actionVM != nil {
+		var dialogView string
+		if m.actionDone {
+			if m.actionError != nil {
+				dialogView = actiondialog.GetErrorText(m.actionName, m.actionVM.Name, m.actionVM.VMID, m.actionError.Error(), m.width, m.height)
+			} else {
+				dialogView = actiondialog.GetSuccessText(m.actionName, m.actionVM.Name, m.actionVM.VMID, m.width, m.height)
+			}
+		} else {
+			dialogView = actiondialog.GetExecutingText(m.actionName, m.actionVM.Name, m.actionVM.VMID, m.width, m.height)
+		}
+		return m.overlayDialog(mainView, dialogView)
+	}
+
+	return mainView
+}
+
+// renderMainList renders the main VM/Container list
+func (m *listModel) renderMainList() string {
+
+	m.parent.refreshMutex.Lock()
+	defer m.parent.refreshMutex.Unlock()
+
+	var b strings.Builder
+
+	titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#008000")).Bold(true)
+
+	// Title
+	title := "Proxmox VMs & Containers "
+	if m.parent.lastError != nil {
+		title = fmt.Sprintf(" Proxmox VMs & Containers (Error: %v) ", m.parent.lastError)
+	}
+	b.WriteString(titleStyle.Render(title))
+	b.WriteString("\n")
+
+	headerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#008000")).Bold(true)
+	separatorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#008000"))
+
+	// Header
+	header := fmt.Sprintf("%-6s %-6s %-20s %-4s %-10s %8s %8s %10s",
+		"Status", "VMID", "Name", "Type", "Node", "CPU%", "Memory%", "Uptime")
+	b.WriteString(headerStyle.Render(header))
+	b.WriteString("\n")
+
+	// Separator
+	separator := strings.Repeat("─", m.width)
+	b.WriteString(separatorStyle.Render(separator))
+	b.WriteString("\n")
+
+	// Rows
+	visibleRows := m.height - 4 // Title, header, separator, and status bar
+	endIdx := m.scrollOffset + visibleRows
+	if endIdx > len(m.parent.sortedNodes) {
+		endIdx = len(m.parent.sortedNodes)
+	}
+
+	for i := m.scrollOffset; i < endIdx; i++ {
+		node := m.parent.sortedNodes[i]
+		b.WriteString(m.renderRow(node, i == m.cursorPosition))
+		b.WriteString("\n")
+	}
+
+	// Fill remaining space
+	for i := endIdx - m.scrollOffset; i < visibleRows; i++ {
+		b.WriteString("\n")
+	}
+
+	// Status bar
+	statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#008000")).Bold(true)
+	statusText := " F1 Help  F2 Conf  F3 Info F4 Start  F5 shutDown  F6 Reboot  F7 sTop  F10 Quit"
+	b.WriteString(statusStyle.Render(statusText))
+	return b.String()
+}
+
+// overlayDialog overlays a dialog on top of the main view
+func (m *listModel) overlayDialog(mainView, dialogView string) string {
+	mainLines := strings.Split(mainView, "\n")
+	dialogLines := strings.Split(dialogView, "\n")
+
+	for i, dialogLine := range dialogLines {
+		if i >= len(mainLines) {
+			break
+		}
+		if len(dialogLine) == 0 {
+			continue
+		}
+		mainLines[i] = m.overlayDialogLine(mainLines[i], dialogLine)
+	}
+
+	return strings.Join(mainLines, "\n")
+}
+
+// overlayDialogLine overlays a single dialog line onto a main line
+func (m *listModel) overlayDialogLine(mainLine, dialogLine string) string {
+	boxStart, boxEnd := findDialogBoxBounds(dialogLine)
+	if boxStart == -1 {
+		return mainLine
+	}
+
+	mainRunes := []rune(mainLine)
+	dialogRunes := []rune(dialogLine)
+
+	// Ensure main line is long enough
+	for len(mainRunes) <= boxEnd {
+		mainRunes = append(mainRunes, ' ')
+	}
+
+	// Copy the dialog box region
+	for j := boxStart; j <= boxEnd; j++ {
+		mainRunes[j] = dialogRunes[j]
+	}
+
+	return string(mainRunes)
+}
+
+// findDialogBoxBounds finds the start and end positions of dialog content
+func findDialogBoxBounds(line string) (int, int) {
+	runes := []rune(line)
+	start, end := -1, -1
+
+	for i, r := range runes {
+		if r != ' ' {
+			if start == -1 {
+				start = i
+			}
+			end = i
+		}
+	}
+
+	return start, end
+}
+
+func (m *listModel) renderRow(node *models.VMStatus, selected bool) string {
+	// Status indicator
+	statusSymbol := "●"
+
+	// Type
+	typeText := "VM"
+	if models.NodeType(node.Type) == models.TypeContainer {
+		typeText = "CT"
+	}
+
+	// CPU and Memory
+	cpuUsage := node.CPUUsage
+	if cpuUsage < 0 {
+		cpuUsage = 0
+	}
+	cpuText := fmt.Sprintf("%.1f%%", cpuUsage)
+
+	memUsage := node.MemoryUsage
+	if memUsage < 0 {
+		memUsage = 0
+	}
+	memText := fmt.Sprintf("%.1f%%", memUsage)
+
+	// Uptime
+	uptimeText := formatUptime(node.Uptime)
+
+	// Build row
+	row := fmt.Sprintf("%-6s %-6s %-20s %-4s %-10s %8s %8s %10s",
+		statusSymbol,
+		node.VMID,
+		truncate(node.Name, 20),
+		typeText,
+		truncate(node.Node, 10),
+		cpuText,
+		memText,
+		uptimeText)
+
+	// Apply selection style first
+	if selected {
+		rowStyle := lipgloss.NewStyle().
+			Reverse(true).
+			Width(m.width)
+		return rowStyle.Render(row)
+	}
+
+	// Apply color to status symbol after selection (only for non-selected rows)
+	runningStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#008000"))
+	stoppedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000"))
+	
+	if node.Status == string(models.StateRunning) {
+		// Replace the status symbol with colored version
+		row = runningStyle.Render(statusSymbol) + row[len(statusSymbol):]
+	} else if node.Status == string(models.StateStopped) {
+		// Replace the status symbol with colored version
+		row = stoppedStyle.Render(statusSymbol) + row[len(statusSymbol):]
+	}
+
+	return row
+}
+
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen-3] + "..."
+}
+
+// tickCmd generates tick messages for the event loop
+func tickCmd() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
+}
+
+// autoRefresh periodically refreshes the data
+func (ml *MainList) autoRefresh() {
+	for {
+		select {
+		case <-ml.refreshTicker.C:
+			if ml.refreshEnabled {
+				ml.performRefresh()
+			}
+		case <-ml.stopRefresh:
+			return
+		}
+	}
+}
+
+// performRefresh executes a single refresh cycle
+func (ml *MainList) performRefresh() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	nodes, err := ml.provider.GetNodes(ctx)
+
+	ml.program.Send(refreshMsg{nodes: nodes, err: err})
 }
 
 // GetSelectedNode returns the currently selected VM/CT
@@ -86,15 +791,10 @@ func (ml *MainList) GetSelectedNode() *models.VMStatus {
 	ml.refreshMutex.Lock()
 	defer ml.refreshMutex.Unlock()
 
-	// Get the current selection from the table directly
-	row, _ := ml.table.GetSelection()
-
-	// Row 0 is the header, so actual nodes start at row 1
-	// Use sortedNodes since that's the order displayed in the table
-	if row <= 0 || row > len(ml.sortedNodes) {
+	if ml.selectedIdx < 0 || ml.selectedIdx >= len(ml.sortedNodes) {
 		return nil
 	}
-	return ml.sortedNodes[row-1]
+	return ml.sortedNodes[ml.selectedIdx]
 }
 
 // GetAllNodes returns all nodes
@@ -109,26 +809,38 @@ func (ml *MainList) GetAllNodes() []*models.VMStatus {
 
 // Refresh fetches and updates the data
 func (ml *MainList) Refresh(ctx context.Context) error {
-	ml.refreshMutex.Lock()
-	defer ml.refreshMutex.Unlock()
-
 	nodes, err := ml.provider.GetNodes(ctx)
 	if err != nil {
+		ml.program.Send(refreshMsg{nodes: nil, err: err})
 		return err
 	}
 
-	ml.nodes = nodes
-	ml.updateTable()
-
-	// Notify callback if set
-	if ml.onNodesUpdated != nil {
-		ml.onNodesUpdated(ml.nodes)
-	}
-
+	ml.program.Send(refreshMsg{nodes: nodes, err: nil})
 	return nil
 }
 
-// updateTable rebuilds the table with current data
+// SetRefreshEnabled enables or disables auto-refresh
+func (ml *MainList) SetRefreshEnabled(enabled bool) {
+	ml.refreshEnabled = enabled
+}
+
+// Stop stops the auto-refresh and program
+func (ml *MainList) Stop() {
+	if ml.refreshTicker != nil {
+		ml.refreshTicker.Stop()
+	}
+	close(ml.stopRefresh)
+	if ml.program != nil {
+		ml.program.Quit()
+	}
+}
+
+// Run starts the program
+func (ml *MainList) Run() error {
+	_, err := ml.program.Run()
+	return err
+}
+
 // sortNodes sorts nodes by type (CT first, then VM) and then by name
 func sortNodes(nodes []*models.VMStatus) []*models.VMStatus {
 	sorted := make([]*models.VMStatus, len(nodes))
@@ -156,182 +868,6 @@ func shouldSwap(a, b *models.VMStatus) bool {
 		return true
 	}
 	return false
-}
-
-// getStatusCell creates a status cell with appropriate color
-func getStatusCell(status models.NodeState) *tview.TableCell {
-	statusColor := colors.Current.DisabledColor
-	switch status {
-	case models.StateRunning:
-		statusColor = colors.Current.OkColor
-	case models.StateStopped:
-		statusColor = colors.Current.AlertColor
-	case models.StatePaused:
-		statusColor = colors.Current.WarningColor
-	}
-	return tview.NewTableCell("●").
-		SetTextColor(statusColor).
-		SetAlign(tview.AlignCenter)
-}
-
-// getTypeCell creates a type cell with VM or CT label and color
-func getTypeCell(nodeType models.NodeType) *tview.TableCell {
-	typeText := "VM"
-	typeColor := colors.VMColor
-	if nodeType == models.TypeContainer {
-		typeText = "CT"
-		typeColor = colors.CTColor
-	}
-	return tview.NewTableCell(typeText).
-		SetTextColor(typeColor).
-		SetAlign(tview.AlignLeft)
-}
-
-// getResourceCell creates a cell for CPU or memory with threshold-based colors
-func getResourceCell(value float64, text string, highThreshold, criticalThreshold float64) *tview.TableCell {
-	cellColor := colors.Current.Foreground
-	if value > criticalThreshold {
-		cellColor = colors.Current.AlertColor
-	} else if value > highThreshold {
-		cellColor = colors.Current.WarningColor
-	}
-	return tview.NewTableCell(text).
-		SetTextColor(cellColor).
-		SetAlign(tview.AlignRight)
-}
-
-func (ml *MainList) updateTable() {
-	ml.table.Clear()
-
-	// Sort nodes
-	ml.sortedNodes = sortNodes(ml.nodes)
-
-	// Add header row
-	headers := []string{"Status", "VMID", "Name", "Type", "Node", "CPU%", "Memory%", "Uptime"}
-	for col, header := range headers {
-		cell := tview.NewTableCell(header).
-			SetTextColor(colors.Current.AccentForeground).
-			SetAlign(tview.AlignLeft).
-			SetSelectable(false)
-
-		// Make the Name column (index 2) expandable
-		if col == 2 {
-			cell.SetExpansion(1)
-		}
-
-		ml.table.SetCell(0, col, cell)
-	}
-
-	// Add data rows
-	for i, node := range ml.sortedNodes {
-		row := i + 1
-
-		// Status
-		ml.table.SetCell(row, 0, getStatusCell(models.NodeState(node.Status)))
-
-		// VMID
-		ml.table.SetCell(row, 1, tview.NewTableCell(node.VMID).
-			SetTextColor(colors.Current.Foreground).
-			SetAlign(tview.AlignLeft))
-
-		// Name (expandable to take remaining space)
-		ml.table.SetCell(row, 2, tview.NewTableCell(node.Name).
-			SetTextColor(colors.Current.Foreground).
-			SetAlign(tview.AlignLeft).
-			SetExpansion(1)) // This makes the column expand to fill available space
-
-		// Type
-		ml.table.SetCell(row, 3, getTypeCell(models.NodeType(node.Type)))
-
-		// Node
-		ml.table.SetCell(row, 4, tview.NewTableCell(node.Node).
-			SetTextColor(colors.Current.Foreground).
-			SetAlign(tview.AlignLeft))
-
-		// CPU% (clamp negative values to 0)
-		cpuUsage := node.CPUUsage
-		if cpuUsage < 0 {
-			cpuUsage = 0
-		}
-		cpuText := fmt.Sprintf("%.1f%%", cpuUsage)
-		ml.table.SetCell(row, 5, getResourceCell(cpuUsage, cpuText, 50, 80))
-
-		// Memory% (clamp negative values to 0)
-		memUsage := node.MemoryUsage
-		if memUsage < 0 {
-			memUsage = 0
-		}
-		memText := fmt.Sprintf("%.1f%%", memUsage)
-		ml.table.SetCell(row, 6, getResourceCell(memUsage, memText, 70, 90))
-
-		// Uptime
-		uptimeText := formatUptime(node.Uptime)
-		ml.table.SetCell(row, 7, tview.NewTableCell(uptimeText).
-			SetTextColor(colors.Current.Foreground).
-			SetAlign(tview.AlignRight))
-	}
-
-	// Restore selection if valid
-	if ml.selectedRow > 0 && ml.selectedRow <= len(ml.nodes) {
-		ml.table.Select(ml.selectedRow, 0)
-	} else if len(ml.nodes) > 0 {
-		ml.table.Select(1, 0)
-		ml.selectedRow = 1
-	}
-}
-
-// autoRefresh periodically refreshes the data
-func (ml *MainList) autoRefresh() {
-	for {
-		select {
-		case <-ml.refreshTicker.C:
-			if ml.refreshEnabled {
-				ml.performRefresh()
-			}
-		case <-ml.stopRefresh:
-			return
-		}
-	}
-}
-
-// performRefresh executes a single refresh cycle with timeout and error handling
-func (ml *MainList) performRefresh() {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	err := ml.Refresh(ctx)
-	ml.updateTitleWithStatus(err)
-}
-
-// updateTitleWithStatus updates the table title based on refresh result
-func (ml *MainList) updateTitleWithStatus(err error) {
-	if ml.app == nil {
-		return
-	}
-
-	var title string
-	if err != nil {
-		title = fmt.Sprintf(" Proxmox VMs & Containers [red](Error: %v)[-] ", err)
-	} else {
-		title = " Proxmox VMs & Containers "
-	}
-
-	ml.app.QueueUpdateDraw(func() {
-		ml.table.SetTitle(title)
-	})
-}
-
-// SetRefreshEnabled enables or disables auto-refresh
-func (ml *MainList) SetRefreshEnabled(enabled bool) {
-	ml.refreshEnabled = enabled
-}
-
-// Stop stops the auto-refresh
-func (ml *MainList) Stop() {
-	if ml.refreshTicker != nil {
-		ml.refreshTicker.Stop()
-	}
-	close(ml.stopRefresh)
 }
 
 // formatUptime converts seconds to human-readable format

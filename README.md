@@ -1,20 +1,18 @@
 # PVEC - Proxmox VE Terminal Client
 
-A terminal-based user interface (TUI) for managing Proxmox Virtual Environment VMs and containers. Built with Go and designed for efficient keyboard-driven workflows.
+A terminal-based user interface (TUI) for managing Proxmox Virtual Environment VMs and containers. Built with Go and Bubble Tea, designed for efficient keyboard-driven workflows.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Go Version](https://img.shields.io/badge/go-1.25-blue.svg)
-![Coverage](https://img.shields.io/badge/coverage-86.1%25-brightgreen.svg)
 
 ## Features
 
-- 📊 **Real-time Monitoring**: Scrolling table view of all VMs and containers with color-coded status
+- 📊 **Real-time Monitoring**: Interactive list view of all VMs and containers
 - ⚡ **Quick Actions**: Start, shutdown, reboot, and stop VMs/CTs with function keys
 - ⌨️ **Keyboard Shortcuts**: Fully keyboard-driven interface (Function Keys + letter shortcuts)
 - 🔄 **Auto-refresh**: Configurable automatic refresh of VM/CT status
-- 🎨 **Color-coded Display**: Visual indicators for running (green), stopped (red), and paused (yellow) states
 - 🔒 **Secure**: Token-based authentication with optional TLS verification
-- 📝 **Configuration**: JSON-based configuration file with CLI override
+- 📝 **Configuration**: JSON-based configuration with interactive editor (F2)
 - 🐳 **Docker Support**: Ready-to-use Docker image
 
 ## Screenshots
@@ -105,10 +103,11 @@ pvec --config /path/to/config.json
 
 - **F1** / **h**: Show help dialog
 - **F2** / **c**: Edit configuration
-- **F3** / **s**: Start selected VM/CT
-- **F4** / **d**: Shutdown selected VM/CT (graceful)
-- **F5** / **r**: Reboot selected VM/CT
-- **F6** / **t**: Stop selected VM/CT (force)
+- **F3** / **i**: Show VM/CT details
+- **F4** / **s**: Start selected VM/CT
+- **F5** / **d**: Shutdown selected VM/CT (graceful)
+- **F6** / **r**: Reboot selected VM/CT
+- **F7** / **t**: Stop selected VM/CT (force)
 - **F10** / **q**: Quit application
 
 ### Navigation
@@ -131,13 +130,6 @@ The main list shows the following information for each VM/CT:
 | CPU | CPU usage percentage (color warning at 80%+) |
 | Memory | Memory usage / Total memory (color warning at 80%+) |
 | Uptime | Time since last boot (days, hours, minutes) |
-
-### Color Coding
-
-- 🟢 **Green**: Running VMs/CTs
-- 🔴 **Red**: Stopped VMs/CTs
-- 🟡 **Yellow**: Paused VMs/CTs
-- 🟠 **Orange**: High resource usage (CPU/Memory ≥80%)
 
 
 
@@ -177,7 +169,6 @@ Contributions are welcome! Please see [docs/dev.md](docs/dev.md) for development
 
 - [Development Guide](docs/dev.md) - Architecture, building, testing, and contributing
 - [Code Analysis Report](docs/code_analysis.md) - Code quality metrics
-- [Color System](docs/colors.md) - UI color theme documentation
 
 ## License
 
@@ -185,7 +176,7 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 ## Acknowledgments
 
-- Built with [tview](https://github.com/rivo/tview) - Terminal UI library
-- Uses [tcell](https://github.com/gdamore/tcell) - Terminal handling
+- Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea) - Terminal UI framework
+- Uses [Bubbles](https://github.com/charmbracelet/bubbles) - TUI components
 - Configuration via [viper](https://github.com/spf13/viper)
 - Testing with [testify](https://github.com/stretchr/testify)
