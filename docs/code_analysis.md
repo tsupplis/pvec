@@ -33,8 +33,8 @@ This report provides comprehensive code analysis including complexity, security,
 
 | Complexity | Package | Function | File | Line |
 |------------|---------|----------|------|------|
-| ⚠️ 14 | `mainlist` | `(*listModel).renderMainList` | `pkg/ui/mainlist/mainlist.go:588` | 1 |
 | ⚠️ 14 | `configpanel` | `(Model).View` | `pkg/ui/configpanel/configpanel.go:237` | 1 |
+| ⚠️ 14 | `mainlist` | `(*listModel).renderMainList` | `pkg/ui/mainlist/mainlist.go:588` | 1 |
 | ⚠️ 13 | `configpanel` | `(*Model).save` | `pkg/ui/configpanel/configpanel.go:199` | 1 |
 | ⚠️ 11 | `mainlist` | `(*listModel).handleConfigPanelMsg` | `pkg/ui/mainlist/mainlist.go:162` | 1 |
 
@@ -83,15 +83,15 @@ This report provides comprehensive code analysis including complexity, security,
 
 ### Project Overview
 
-- **Total Lines of Code:** 4,137
-- **Go Files:** 21
+- **Total Lines of Code:** 4,179
+- **Go Files:** 22
 - **Packages:** 9
 
 ### Package Details
 
 | Package | Go Files | Test Files | Lines | Test Lines | Test Coverage |
 |---------|----------|------------|-------|------------|---------------|
-| `pvec` | 1 | 0 | 94 | 0 | 0.0% |
+| `pvec` | 1 | 1 | 94 | 42 | 13.5% |
 | `test-client` | 1 | 0 | 58 | 0 | N/A |
 | `actions` | 1 | 1 | 141 | 144 | 100.0% |
 | `config` | 1 | 1 | 102 | 187 | 94.1% |
@@ -101,21 +101,21 @@ This report provides comprehensive code analysis including complexity, security,
 | `detailsdialog` | 1 | 1 | 381 | 71 | 74.5% |
 | `helpdialog` | 1 | 1 | 95 | 48 | 100.0% |
 | `mainlist` | 1 | 1 | 886 | 306 | 19.6% |
-| **TOTAL** | **12** | **9** | **2,623** | **1,572** | - |
+| **TOTAL** | **12** | **10** | **2,623** | **1,614** | - |
 
 ### Test Coverage Summary
 
 | Package | Status | Coverage |
 |---------|--------|----------|
-| `pvec` | ❌ - | 0.0% |
+| `pvec` | ✅ ok | 13.5% |
 | `actions` | ✅ ok (cached) | 100.0% |
 | `config` | ✅ ok (cached) | 94.1% |
 | `models` | ✅ ok (cached) | 100.0% |
 | `proxmox` | ✅ ok (cached) | 73.2% |
-| `configpanel` | ✅ ok | 66.3% |
+| `configpanel` | ✅ ok (cached) | 66.3% |
 | `detailsdialog` | ✅ ok (cached) | 74.5% |
 | `helpdialog` | ✅ ok (cached) | 100.0% |
-| `mainlist` | ✅ ok | 19.6% |
+| `mainlist` | ✅ ok (cached) | 19.6% |
 
 ## Complexity Guidelines
 
@@ -148,7 +148,7 @@ Based on the analysis above:
 ## Analysis Timestamp
 
 
-**Generated:** 2025-11-30 01:52:53
+**Generated:** 2025-11-30 01:56:18
 
 ---
 
