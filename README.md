@@ -22,8 +22,8 @@ A terminal-based user interface (TUI) for managing Proxmox Virtual Environment V
 
 The main interface shows all your VMs and containers in a clean, color-coded table with real-time status updates.
 
-### VM Details Dialog
-![VM Details View](images/details.png)
+### VM Info Dialog
+![VM Info View](images/details.png)
 
 Press Enter on any VM/CT to view detailed configuration information in an organized, scrollable dialog.
 

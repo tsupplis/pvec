@@ -736,7 +736,7 @@ func (m *listModel) renderRow(node *models.VMStatus, selected bool) string {
 	// Apply color to status symbol after selection (only for non-selected rows)
 	runningStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#008000"))
 	stoppedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000"))
-	
+
 	if node.Status == string(models.StateRunning) {
 		// Replace the status symbol with colored version
 		row = runningStyle.Render(statusSymbol) + row[len(statusSymbol):]

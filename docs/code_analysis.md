@@ -13,16 +13,16 @@ This report provides comprehensive code analysis including complexity, security,
 
 | Complexity | Package | Function | File | Line |
 |------------|---------|----------|------|------|
-| ⚠️ 14 | `helpdialog` | `GetHelpText` | `pkg/ui/helpdialog/helpdialog.go` | 8 |
+| ⚠️ 14 | `helpdialog` | `GetHelpText` | `pkg/ui/helpdialog/helpdialog.go` | 10 |
 | ⚠️ 12 | `mainlist` | `(*listModel).View` | `pkg/ui/mainlist/mainlist.go` | 533 |
-| ⚠️ 11 | `configpanel` | `(Model).View` | `pkg/ui/configpanel/configpanel.go` | 214 |
+| ⚠️ 11 | `configpanel` | `(Model).View` | `pkg/ui/configpanel/configpanel.go` | 215 |
 | ✅ 9 | `mainlist` | `(*listModel).handleFunctionKeys` | `pkg/ui/mainlist/mainlist.go` | 286 |
 | ✅ 8 | `mainlist` | `(*listModel).executeAction` | `pkg/ui/mainlist/mainlist.go` | 481 |
 | ✅ 8 | `mainlist` | `(*listModel).handleNavigationKeys` | `pkg/ui/mainlist/mainlist.go` | 352 |
 | ✅ 8 | `mainlist` | `(*listModel).Update` | `pkg/ui/mainlist/mainlist.go` | 136 |
 | ✅ 8 | `proxmox` | `(*HTTPClient).GetNodes` | `pkg/proxmox/client.go` | 122 |
-| ✅ 7 | `detailsdialog` | `formatValue` | `pkg/ui/detailsdialog/detailsdialog.go` | 299 |
-| ✅ 7 | `detailsdialog` | `GetDetailsText` | `pkg/ui/detailsdialog/detailsdialog.go` | 12 |
+| ✅ 7 | `mainlist` | `(*listModel).renderRow` | `pkg/ui/mainlist/mainlist.go` | 691 |
+| ✅ 7 | `detailsdialog` | `formatValue` | `pkg/ui/detailsdialog/detailsdialog.go` | 312 |
 
 ### Functions Requiring Attention (Complexity > 15)
 
@@ -33,10 +33,10 @@ This report provides comprehensive code analysis including complexity, security,
 
 | Complexity | Package | Function | File | Line |
 |------------|---------|----------|------|------|
-| 🔶 19 | `helpdialog` | `GetHelpText` | `pkg/ui/helpdialog/helpdialog.go:8` | 1 |
+| 🔶 19 | `helpdialog` | `GetHelpText` | `pkg/ui/helpdialog/helpdialog.go:10` | 1 |
 | 🔶 18 | `mainlist` | `(*listModel).View` | `pkg/ui/mainlist/mainlist.go:533` | 1 |
-| 🔶 16 | `configpanel` | `(Model).View` | `pkg/ui/configpanel/configpanel.go:214` | 1 |
-| ⚠️ 13 | `configpanel` | `(*Model).save` | `pkg/ui/configpanel/configpanel.go:176` | 1 |
+| 🔶 16 | `configpanel` | `(Model).View` | `pkg/ui/configpanel/configpanel.go:215` | 1 |
+| ⚠️ 13 | `configpanel` | `(*Model).save` | `pkg/ui/configpanel/configpanel.go:177` | 1 |
 
 
 
@@ -83,8 +83,8 @@ This report provides comprehensive code analysis including complexity, security,
 
 ### Project Overview
 
-- **Total Lines of Code:** 3,678
-- **Go Files:** 18
+- **Total Lines of Code:** 3,912
+- **Go Files:** 21
 - **Packages:** 10
 
 ### Package Details
@@ -97,12 +97,12 @@ This report provides comprehensive code analysis including complexity, security,
 | `config` | 1 | 1 | 102 | 187 | 94.1% |
 | `models` | 1 | 1 | 119 | 145 | 100.0% |
 | `proxmox` | 3 | 2 | 395 | 426 | 73.2% |
-| `actiondialog` | 1 | 0 | 212 | 0 | 0.0% |
-| `configpanel` | 1 | 0 | 335 | 0 | 0.0% |
-| `detailsdialog` | 1 | 0 | 380 | 0 | 0.0% |
-| `helpdialog` | 1 | 0 | 123 | 0 | 0.0% |
-| `mainlist` | 1 | 0 | 875 | 0 | 0.0% |
-| **TOTAL** | **13** | **5** | **2,834** | **902** | - |
+| `actiondialog` | 1 | 1 | 234 | 54 | 91.5% |
+| `configpanel` | 1 | 0 | 340 | 0 | 0.0% |
+| `detailsdialog` | 1 | 1 | 393 | 71 | 75.9% |
+| `helpdialog` | 1 | 1 | 129 | 48 | 94.0% |
+| `mainlist` | 1 | 0 | 890 | 0 | 0.0% |
+| **TOTAL** | **13** | **8** | **2,895** | **1,075** | - |
 
 ### Test Coverage Summary
 
@@ -113,10 +113,10 @@ This report provides comprehensive code analysis including complexity, security,
 | `config` | ✅ ok (cached) | 94.1% |
 | `models` | ✅ ok (cached) | 100.0% |
 | `proxmox` | ✅ ok (cached) | 73.2% |
-| `actiondialog` | ❌ - | 0.0% |
+| `actiondialog` | ✅ ok (cached) | 91.5% |
 | `configpanel` | ❌ - | 0.0% |
-| `detailsdialog` | ❌ - | 0.0% |
-| `helpdialog` | ❌ - | 0.0% |
+| `detailsdialog` | ✅ ok (cached) | 75.9% |
+| `helpdialog` | ✅ ok (cached) | 94.0% |
 | `mainlist` | ❌ - | 0.0% |
 
 ## Complexity Guidelines
@@ -150,7 +150,7 @@ Based on the analysis above:
 ## Analysis Timestamp
 
 
-**Generated:** 2025-11-29 23:52:55
+**Generated:** 2025-11-30 00:20:12
 
 ---
 
