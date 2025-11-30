@@ -18,11 +18,7 @@ func GetDetailsText(vm *models.VMStatus, config map[string]interface{}, width, h
 	statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#008000")).Bold(true)
 
 	// Title
-	title := fmt.Sprintf(" Details: %s (%s) ", vm.Name, vm.VMID)
-	padding := (width - len(title)) / 2
-	if padding > 0 {
-		b.WriteString(strings.Repeat(" ", padding))
-	}
+	title := fmt.Sprintf("Details: %s (%s)", vm.Name, vm.VMID)
 	b.WriteString(titleStyle.Render(title))
 	b.WriteString("\n")
 	b.WriteString(separatorStyle.Render(strings.Repeat("─", width)))
@@ -74,11 +70,7 @@ func GetLoadingText(vm *models.VMStatus, width, height int) string {
 	separatorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#008000"))
 	statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#008000")).Bold(true)
 
-	title := fmt.Sprintf(" Details: %s (%s) ", vm.Name, vm.VMID)
-	padding := (width - len(title)) / 2
-	if padding > 0 {
-		b.WriteString(strings.Repeat(" ", padding))
-	}
+	title := fmt.Sprintf("Details: %s (%s)", vm.Name, vm.VMID)
 	b.WriteString(titleStyle.Render(title))
 	b.WriteString("\n")
 	b.WriteString(separatorStyle.Render(strings.Repeat("─", width)))
@@ -100,7 +92,7 @@ func GetLoadingText(vm *models.VMStatus, width, height int) string {
 		b.WriteString("\n")
 	}
 
-	b.WriteString(statusStyle.Render(" ESC/Enter Close"))
+	b.WriteString(statusStyle.Render("ESC/Enter Close"))
 	return b.String()
 }
 
@@ -112,11 +104,7 @@ func GetErrorText(vm *models.VMStatus, err error, width, height int) string {
 	separatorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#008000"))
 	statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#008000")).Bold(true)
 
-	title := fmt.Sprintf(" Details: %s (%s) ", vm.Name, vm.VMID)
-	padding := (width - len(title)) / 2
-	if padding > 0 {
-		b.WriteString(strings.Repeat(" ", padding))
-	}
+	title := fmt.Sprintf("Details: %s (%s)", vm.Name, vm.VMID)
 	b.WriteString(titleStyle.Render(title))
 	b.WriteString("\n")
 	b.WriteString(separatorStyle.Render(strings.Repeat("─", width)))
@@ -138,7 +126,7 @@ func GetErrorText(vm *models.VMStatus, err error, width, height int) string {
 		b.WriteString("\n")
 	}
 
-	b.WriteString(statusStyle.Render(" ESC/Enter Close"))
+	b.WriteString(statusStyle.Render("ESC/Enter Close"))
 	return b.String()
 }
 

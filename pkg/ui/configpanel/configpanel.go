@@ -74,6 +74,11 @@ type SaveResultMsg struct {
 	err error
 }
 
+// Err returns the error from save operation
+func (m SaveResultMsg) Err() error {
+	return m.err
+}
+
 // CloseMsg is sent when config panel wants to close
 type CloseMsg struct{}
 
@@ -107,24 +112,41 @@ func (m Model) handleSaveResult(msg SaveResultMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
 		m.message = fmt.Sprintf("Error: %v", msg.err)
 		m.messageIsError = true
-	} else {
-		m.message = "Configuration saved successfully! Restart required."
-		m.messageIsError = false
+		return m, nil
 	}
-	return m, nil
+	// Success - send both save result and close message
+	return m, tea.Batch(
+		func() tea.Msg { return msg },
+		func() tea.Msg { return CloseMsg{} },
+	)
 }
 
 // handleKeyMsg processes keyboard input
 func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
+		// ESC always closes without saving
 		return m, func() tea.Msg { return CloseMsg{} }
 	case "tab", "down":
 		return m.handleNavigationNext()
 	case "shift+tab", "up":
 		return m.handleNavigationPrev()
-	case "enter", " ":
+	case "enter":
 		return m.handleAction()
+	case " ":
+		// Space only for checkboxes and buttons
+		if m.focusedField >= 4 {
+			return m.handleAction()
+		}
+		// Otherwise let text input handle it
+		fallthrough
+	default:
+		// For text input fields, let the text input handle the key
+		if m.focusedField < 4 {
+			var cmd tea.Cmd
+			m.inputs[m.focusedField], cmd = m.inputs[m.focusedField].Update(msg)
+			return m, cmd
+		}
 	}
 	return m, nil
 }
@@ -221,10 +243,6 @@ func (m Model) View() string {
 
 	// Title line
 	title := "Configuration"
-	titlePadding := (m.width - len(title)) / 2
-	if titlePadding > 0 {
-		b.WriteString(strings.Repeat(" ", titlePadding))
-	}
 	b.WriteString(titleStyle.Render(title))
 	b.WriteString("\n")
 
@@ -235,13 +253,8 @@ func (m Model) View() string {
 	// Blank line after separator
 	b.WriteString("\n")
 
-	// Calculate left padding for form
-	formWidth := 60
-	leftPadding := (m.width - formWidth) / 2
-	if leftPadding < 2 {
-		leftPadding = 2
-	}
-	padding := strings.Repeat(" ", leftPadding)
+	// Fixed left padding
+	padding := "    " // 4 spaces
 
 	// API URL field
 	b.WriteString(padding)
@@ -319,8 +332,7 @@ func (m Model) View() string {
 			b.WriteString(m.message + " - Press ESC to close")
 		}
 		b.WriteString("\n")
-		// Added: blank line(1) + message(1) + blank line(1) = 3 lines
-		usedLines += 3
+		usedLines += 2 // blank line(1) + message(1)
 	}
 
 	// Fill space to push status bar to last line
@@ -334,7 +346,7 @@ func (m Model) View() string {
 	}
 
 	// Status bar on the last line (no trailing newline)
-	b.WriteString(statusStyle.Render(" Tab/↑↓: Navigate | Enter/Space: Select | ESC: Close"))
+	b.WriteString(statusStyle.Render("Tab/↑↓: Navigate | Enter/Space: Select | ESC: Close"))
 
 	return b.String()
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/tsupplis/pvec/pkg/config"
 	"github.com/tsupplis/pvec/pkg/models"
 	"github.com/tsupplis/pvec/pkg/proxmox"
-	"github.com/tsupplis/pvec/pkg/ui/actiondialog"
 	"github.com/tsupplis/pvec/pkg/ui/configpanel"
 	"github.com/tsupplis/pvec/pkg/ui/detailsdialog"
 	"github.com/tsupplis/pvec/pkg/ui/helpdialog"
@@ -159,16 +158,42 @@ func (m *listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleConfigPanelMsg handles config panel related messages
 func (m *listModel) handleConfigPanelMsg(msg tea.Msg) (bool, tea.Model, tea.Cmd) {
-	if _, ok := msg.(configpanel.CloseMsg); ok {
-		m.showConfig = false
-		return true, m, nil
-	}
-
+	// First, let the config panel handle the message if it's showing
 	if m.showConfig && m.configModel != nil {
 		updatedModel, cmd := m.configModel.Update(msg)
 		if updated, ok := updatedModel.(configpanel.Model); ok {
 			m.configModel = &updated
 		}
+
+		// Check if this generated a CloseMsg or SaveResultMsg
+		if _, ok := msg.(configpanel.CloseMsg); ok {
+			m.showConfig = false
+			return true, m, nil
+		}
+
+		// Handle save result - reinitialize client with new config
+		if saveMsg, ok := msg.(configpanel.SaveResultMsg); ok {
+			// Clear the node list immediately (config might be invalid)
+			m.parent.refreshMutex.Lock()
+			m.parent.nodes = nil
+			m.parent.sortedNodes = nil
+			m.parent.selectedIdx = 0
+			m.cursorPosition = 0
+			m.scrollOffset = 0
+			m.parent.refreshMutex.Unlock()
+
+			if saveMsg.Err() == nil {
+				// Close the config panel on successful save
+				m.showConfig = false
+				// Reinitialize the Proxmox client with updated configuration
+				m.parent.reinitializeClient()
+				// Trigger immediate refresh with new client
+				return true, m, m.parent.refreshCmd()
+			}
+			// Keep panel open on error
+			return true, m, cmd
+		}
+
 		return true, m, cmd
 	}
 
@@ -314,7 +339,8 @@ func (m *listModel) handleHelpKey() (bool, tea.Model, tea.Cmd) {
 // handleConfigKey shows the config panel
 func (m *listModel) handleConfigKey() (bool, tea.Model, tea.Cmd) {
 	m.showConfig = true
-	if m.configModel == nil && m.parent.appConfig != nil && m.parent.configLoader != nil {
+	// Always recreate the config model to reset any unsaved changes
+	if m.parent.appConfig != nil && m.parent.configLoader != nil {
 		model := configpanel.NewModel(m.parent.appConfig, m.parent.configLoader)
 		updatedModel, _ := model.Update(tea.WindowSizeMsg{Width: m.width, Height: m.height})
 		if updated, ok := updatedModel.(configpanel.Model); ok {
@@ -552,25 +578,8 @@ func (m *listModel) View() string {
 		}
 	}
 
-	// Render main list first
-	mainView := m.renderMainList()
-
-	// Overlay action dialog if requested
-	if m.showAction && m.actionVM != nil {
-		var dialogView string
-		if m.actionDone {
-			if m.actionError != nil {
-				dialogView = actiondialog.GetErrorText(m.actionName, m.actionVM.Name, m.actionVM.VMID, m.actionError.Error(), m.width, m.height)
-			} else {
-				dialogView = actiondialog.GetSuccessText(m.actionName, m.actionVM.Name, m.actionVM.VMID, m.width, m.height)
-			}
-		} else {
-			dialogView = actiondialog.GetExecutingText(m.actionName, m.actionVM.Name, m.actionVM.VMID, m.width, m.height)
-		}
-		return m.overlayDialog(mainView, dialogView)
-	}
-
-	return mainView
+	// Render main list
+	return m.renderMainList()
 }
 
 // renderMainList renders the main VM/Container list
@@ -586,7 +595,7 @@ func (m *listModel) renderMainList() string {
 	// Title
 	title := "Proxmox VMs & Containers "
 	if m.parent.lastError != nil {
-		title = fmt.Sprintf(" Proxmox VMs & Containers (Error: %v) ", m.parent.lastError)
+		title = "Proxmox VMs & Containers (Error Connecting) "
 	}
 	b.WriteString(titleStyle.Render(title))
 	b.WriteString("\n")
@@ -625,72 +634,30 @@ func (m *listModel) renderMainList() string {
 
 	// Status bar
 	statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#008000")).Bold(true)
-	statusText := " F1 Help  F2 Conf  F3 Info F4 Start  F5 shutDown  F6 Reboot  F7 sTop  F10 Quit"
+	errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000")).Bold(true)
+
+	var statusText string
+	if m.showAction && m.actionVM != nil {
+		actionCap := strings.Title(m.actionName)
+		if m.actionDone {
+			if m.actionError != nil {
+				statusText = errorStyle.Render(fmt.Sprintf("Failed to %s %s. - Press any key", m.actionName, m.actionVM.VMID))
+			} else {
+				statusText = errorStyle.Render(fmt.Sprintf("Succeeded in %s %s. - Press any key", m.actionName, m.actionVM.VMID))
+			}
+		} else {
+			statusText = statusStyle.Render(fmt.Sprintf("%s on %s...", actionCap, m.actionVM.Name))
+		}
+	} else {
+		statusText = "F1 Help  F2 Conf  F3 Info F4 Start  F5 shutDown  F6 Reboot  F7 sTop  F10 Quit"
+	}
 	b.WriteString(statusStyle.Render(statusText))
 	return b.String()
 }
 
-// overlayDialog overlays a dialog on top of the main view
-func (m *listModel) overlayDialog(mainView, dialogView string) string {
-	mainLines := strings.Split(mainView, "\n")
-	dialogLines := strings.Split(dialogView, "\n")
-
-	for i, dialogLine := range dialogLines {
-		if i >= len(mainLines) {
-			break
-		}
-		if len(dialogLine) == 0 {
-			continue
-		}
-		mainLines[i] = m.overlayDialogLine(mainLines[i], dialogLine)
-	}
-
-	return strings.Join(mainLines, "\n")
-}
-
-// overlayDialogLine overlays a single dialog line onto a main line
-func (m *listModel) overlayDialogLine(mainLine, dialogLine string) string {
-	boxStart, boxEnd := findDialogBoxBounds(dialogLine)
-	if boxStart == -1 {
-		return mainLine
-	}
-
-	mainRunes := []rune(mainLine)
-	dialogRunes := []rune(dialogLine)
-
-	// Ensure main line is long enough
-	for len(mainRunes) <= boxEnd {
-		mainRunes = append(mainRunes, ' ')
-	}
-
-	// Copy the dialog box region
-	for j := boxStart; j <= boxEnd; j++ {
-		mainRunes[j] = dialogRunes[j]
-	}
-
-	return string(mainRunes)
-}
-
-// findDialogBoxBounds finds the start and end positions of dialog content
-func findDialogBoxBounds(line string) (int, int) {
-	runes := []rune(line)
-	start, end := -1, -1
-
-	for i, r := range runes {
-		if r != ' ' {
-			if start == -1 {
-				start = i
-			}
-			end = i
-		}
-	}
-
-	return start, end
-}
-
 func (m *listModel) renderRow(node *models.VMStatus, selected bool) string {
 	// Status indicator
-	statusSymbol := "●"
+	statusSymbol := node.Status
 
 	// Type
 	typeText := "VM"
@@ -822,6 +789,33 @@ func (ml *MainList) Refresh(ctx context.Context) error {
 // SetRefreshEnabled enables or disables auto-refresh
 func (ml *MainList) SetRefreshEnabled(enabled bool) {
 	ml.refreshEnabled = enabled
+}
+
+// reinitializeClient creates a new Proxmox client with updated configuration
+func (ml *MainList) reinitializeClient() {
+	// Create new client with updated config
+	newClient := proxmox.NewClient(
+		ml.appConfig.APIUrl,
+		ml.appConfig.GetAuthToken(),
+		ml.appConfig.SkipTLSVerify,
+	)
+
+	// Update the provider and client
+	ml.client = newClient
+	ml.provider = newClient
+
+	// Update refresh interval if it changed
+	if ml.refreshTicker != nil && ml.appConfig.RefreshInterval > 0 {
+		ml.refreshTicker.Reset(ml.appConfig.RefreshInterval)
+	}
+}
+
+// refreshCmd returns a command that triggers a refresh
+func (ml *MainList) refreshCmd() tea.Cmd {
+	return func() tea.Msg {
+		go ml.performRefresh()
+		return nil
+	}
 }
 
 // Stop stops the auto-refresh and program

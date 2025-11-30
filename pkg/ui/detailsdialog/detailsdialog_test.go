@@ -1,11 +1,11 @@
 package detailsdialog
 
 import (
-"errors"
-"strings"
-"testing"
+	"errors"
+	"strings"
+	"testing"
 
-"github.com/tsupplis/pvec/pkg/models"
+	"github.com/tsupplis/pvec/pkg/models"
 )
 
 func TestGetDetailsText(t *testing.T) {

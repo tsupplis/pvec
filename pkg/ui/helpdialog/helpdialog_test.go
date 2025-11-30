@@ -1,8 +1,8 @@
 package helpdialog
 
 import (
-"strings"
-"testing"
+	"strings"
+	"testing"
 )
 
 func TestGetHelpText(t *testing.T) {

@@ -13,16 +13,16 @@ This report provides comprehensive code analysis including complexity, security,
 
 | Complexity | Package | Function | File | Line |
 |------------|---------|----------|------|------|
-| ⚠️ 14 | `helpdialog` | `GetHelpText` | `pkg/ui/helpdialog/helpdialog.go` | 10 |
-| ⚠️ 12 | `mainlist` | `(*listModel).View` | `pkg/ui/mainlist/mainlist.go` | 533 |
-| ⚠️ 11 | `configpanel` | `(Model).View` | `pkg/ui/configpanel/configpanel.go` | 215 |
-| ✅ 9 | `mainlist` | `(*listModel).handleFunctionKeys` | `pkg/ui/mainlist/mainlist.go` | 286 |
-| ✅ 8 | `mainlist` | `(*listModel).executeAction` | `pkg/ui/mainlist/mainlist.go` | 481 |
-| ✅ 8 | `mainlist` | `(*listModel).handleNavigationKeys` | `pkg/ui/mainlist/mainlist.go` | 352 |
-| ✅ 8 | `mainlist` | `(*listModel).Update` | `pkg/ui/mainlist/mainlist.go` | 136 |
+| ✅ 9 | `mainlist` | `(*listModel).renderMainList` | `pkg/ui/mainlist/mainlist.go` | 586 |
+| ✅ 9 | `mainlist` | `(*listModel).handleFunctionKeys` | `pkg/ui/mainlist/mainlist.go` | 311 |
+| ✅ 9 | `configpanel` | `(Model).View` | `pkg/ui/configpanel/configpanel.go` | 237 |
+| ✅ 8 | `mainlist` | `(*listModel).View` | `pkg/ui/mainlist/mainlist.go` | 559 |
+| ✅ 8 | `mainlist` | `(*listModel).executeAction` | `pkg/ui/mainlist/mainlist.go` | 507 |
+| ✅ 8 | `mainlist` | `(*listModel).handleNavigationKeys` | `pkg/ui/mainlist/mainlist.go` | 378 |
+| ✅ 8 | `mainlist` | `(*listModel).Update` | `pkg/ui/mainlist/mainlist.go` | 135 |
+| ✅ 8 | `configpanel` | `(Model).handleKeyMsg` | `pkg/ui/configpanel/configpanel.go` | 125 |
 | ✅ 8 | `proxmox` | `(*HTTPClient).GetNodes` | `pkg/proxmox/client.go` | 122 |
-| ✅ 7 | `mainlist` | `(*listModel).renderRow` | `pkg/ui/mainlist/mainlist.go` | 691 |
-| ✅ 7 | `detailsdialog` | `formatValue` | `pkg/ui/detailsdialog/detailsdialog.go` | 312 |
+| ✅ 7 | `mainlist` | `(*listModel).renderRow` | `pkg/ui/mainlist/mainlist.go` | 658 |
 
 ### Functions Requiring Attention (Complexity > 15)
 
@@ -33,16 +33,20 @@ This report provides comprehensive code analysis including complexity, security,
 
 | Complexity | Package | Function | File | Line |
 |------------|---------|----------|------|------|
-| 🔶 19 | `helpdialog` | `GetHelpText` | `pkg/ui/helpdialog/helpdialog.go:10` | 1 |
-| 🔶 18 | `mainlist` | `(*listModel).View` | `pkg/ui/mainlist/mainlist.go:533` | 1 |
-| 🔶 16 | `configpanel` | `(Model).View` | `pkg/ui/configpanel/configpanel.go:215` | 1 |
-| ⚠️ 13 | `configpanel` | `(*Model).save` | `pkg/ui/configpanel/configpanel.go:177` | 1 |
+| ⚠️ 14 | `configpanel` | `(Model).View` | `pkg/ui/configpanel/configpanel.go:237` | 1 |
+| ⚠️ 14 | `mainlist` | `(*listModel).renderMainList` | `pkg/ui/mainlist/mainlist.go:586` | 1 |
+| ⚠️ 13 | `configpanel` | `(*Model).save` | `pkg/ui/configpanel/configpanel.go:199` | 1 |
+| ⚠️ 11 | `mainlist` | `(*listModel).handleConfigPanelMsg` | `pkg/ui/mainlist/mainlist.go:160` | 1 |
 
 
 
 ## Static Analysis Results
 
-✅ **No code quality issues found!**
+### Code Quality Issues
+
+| File | Line | Column | Issue | Linter |
+|------|------|--------|-------|--------|
+| `pkg/ui/mainlist/mainlist.go` | 641 | 16 | SA1019: strings.Title has been deprecated since Go 1.18 and an alternative has been available since Go 1.0: The rule Title uses for word boundaries does not handle Unicode punctuation properly. Use golang.org/x/text/cases instead. | `staticcheck` |
 ## Go Vet Analysis
 
 ✅ **No go vet issues found** - Code passes all built-in static checks!
@@ -50,7 +54,11 @@ This report provides comprehensive code analysis including complexity, security,
 
 ## Staticcheck Analysis
 
-✅ **No staticcheck issues found** - Code meets advanced static analysis standards!
+### Staticcheck Issues Found: 1
+
+| File | Line | Column | Issue | Rule |
+|------|------|--------|-------|------|
+| `pkg/ui/mainlist/mainlist.go` | 641 | 16 | strings.Title has been deprecated since Go 1.18 and an alternative has been available since Go 1.0: The rule Title uses for word boundaries does not handle Unicode punctuation properly. Use golang.org/x/text/cases instead. | `SA1019` |
 
 
 ## Security Analysis Results
@@ -83,9 +91,9 @@ This report provides comprehensive code analysis including complexity, security,
 
 ### Project Overview
 
-- **Total Lines of Code:** 3,912
-- **Go Files:** 21
-- **Packages:** 10
+- **Total Lines of Code:** 3,584
+- **Go Files:** 19
+- **Packages:** 9
 
 ### Package Details
 
@@ -97,12 +105,11 @@ This report provides comprehensive code analysis including complexity, security,
 | `config` | 1 | 1 | 102 | 187 | 94.1% |
 | `models` | 1 | 1 | 119 | 145 | 100.0% |
 | `proxmox` | 3 | 2 | 395 | 426 | 73.2% |
-| `actiondialog` | 1 | 1 | 234 | 54 | 91.5% |
-| `configpanel` | 1 | 0 | 340 | 0 | 0.0% |
-| `detailsdialog` | 1 | 1 | 393 | 71 | 75.9% |
-| `helpdialog` | 1 | 1 | 129 | 48 | 94.0% |
-| `mainlist` | 1 | 0 | 890 | 0 | 0.0% |
-| **TOTAL** | **13** | **8** | **2,895** | **1,075** | - |
+| `configpanel` | 1 | 0 | 352 | 0 | 0.0% |
+| `detailsdialog` | 1 | 1 | 381 | 71 | 74.5% |
+| `helpdialog` | 1 | 1 | 95 | 48 | 100.0% |
+| `mainlist` | 1 | 0 | 884 | 0 | 0.0% |
+| **TOTAL** | **12** | **7** | **2,621** | **1,021** | - |
 
 ### Test Coverage Summary
 
@@ -113,10 +120,9 @@ This report provides comprehensive code analysis including complexity, security,
 | `config` | ✅ ok (cached) | 94.1% |
 | `models` | ✅ ok (cached) | 100.0% |
 | `proxmox` | ✅ ok (cached) | 73.2% |
-| `actiondialog` | ✅ ok (cached) | 91.5% |
 | `configpanel` | ❌ - | 0.0% |
-| `detailsdialog` | ✅ ok (cached) | 75.9% |
-| `helpdialog` | ✅ ok (cached) | 94.0% |
+| `detailsdialog` | ✅ ok | 74.5% |
+| `helpdialog` | ✅ ok | 100.0% |
 | `mainlist` | ❌ - | 0.0% |
 
 ## Complexity Guidelines
@@ -150,7 +156,7 @@ Based on the analysis above:
 ## Analysis Timestamp
 
 
-**Generated:** 2025-11-30 00:20:12
+**Generated:** 2025-11-30 01:28:03
 
 ---
 
