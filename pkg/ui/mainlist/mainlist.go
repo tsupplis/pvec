@@ -16,6 +16,8 @@ import (
 	"github.com/tsupplis/pvec/pkg/ui/configpanel"
 	"github.com/tsupplis/pvec/pkg/ui/detailsdialog"
 	"github.com/tsupplis/pvec/pkg/ui/helpdialog"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // DataProvider is the interface for fetching node data
@@ -638,7 +640,7 @@ func (m *listModel) renderMainList() string {
 
 	var statusText string
 	if m.showAction && m.actionVM != nil {
-		actionCap := strings.Title(m.actionName)
+		actionCap := cases.Title(language.English).String(m.actionName)
 		if m.actionDone {
 			if m.actionError != nil {
 				statusText = errorStyle.Render(fmt.Sprintf("Failed to %s %s. - Press any key", m.actionName, m.actionVM.VMID))
