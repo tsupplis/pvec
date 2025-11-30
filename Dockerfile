@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:alpine-latest AS builder
+FROM golang:alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git make
@@ -14,7 +14,7 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o pvec ./cmd/pvec
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o pvec .
 
 # Final stage
 FROM alpine:latest
